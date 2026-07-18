@@ -4,8 +4,58 @@ A production-quality personal AI assistant, built in Python, inspired by
 Iron Man's JARVIS. This project is being built incrementally, one phase
 at a time.
 
-## Current Status: Phase 6 — Persistent Memory
+## Current Status: Phase 7 — Plugins/Modules
 
+Phases 1-6 built the foundation, window, AI chat, voice, automation,
+and memory. Phase 7 lets JARVIS be extended with new capabilities
+WITHOUT editing any of its core files — just drop a new Python file
+into `src/jarvis/plugins/` and restart.
+
+Two working example plugins are included:
+- **get_current_datetime** — "what time is it?" / "what's today's date?"
+- **convert_units** — "convert 100 fahrenheit to celsius", "how many
+  kilometers is 5 miles?"
+
+### Writing your own plugin
+
+Create a new file in `src/jarvis/plugins/` (any name, e.g.
+`my_plugin.py`) defining exactly two things:
+
+```python
+TOOL_DEFINITION = {
+    "name": "my_tool_name",
+    "description": "What this tool does and when Claude should use it.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "some_argument": {
+                "type": "string",
+                "description": "What this argument means.",
+            }
+        },
+        "required": ["some_argument"],
+    },
+}
+
+def handle(tool_input: dict) -> str:
+    # Do something with tool_input["some_argument"], then return a
+    # plain-text result string.
+    return "result to show the user"
+```
+
+Restart JARVIS and the new tool is automatically available — no other
+file needs to change. See `time_date_plugin.py` and
+`unit_converter_plugin.py` in that same folder for two complete,
+working examples to copy from.
+
+**A broken plugin can't break JARVIS:** if a plugin file has a typo,
+raises an error on import, or is missing `TOOL_DEFINITION`/`handle()`,
+it's skipped with a warning in the log — the rest of JARVIS (and any
+other plugins) keeps working normally. You can also "disable" a plugin
+without deleting it by renaming it to start with an underscore (e.g.
+`_my_plugin.py`).
+
+### Memory (from Phase 6)
 Phases 1-5 built the foundation, window, AI chat, voice, and
 automation. Phase 6 gives JARVIS REAL memory — conversations now
 survive closing and reopening the app, stored permanently in a small
@@ -94,7 +144,8 @@ Jarvis-Assistant/
 │       │   └── settings.py  # App-wide constants, model choice, system prompt
 │       ├── core/
 │       │   ├── ai_engine.py    # Talks to Claude API, manages memory + tool use
-│       │   ├── tools.py        # Tool schemas + dispatcher for automation actions
+│       │   ├── tools.py        # Tool schemas + dispatcher (built-in + plugins)
+│       │   ├── plugin_loader.py # Discovers and loads plugins/ at startup
 │       │   ├── memory_store.py # Persistent (cross-restart) conversation memory
 │       │   ├── voice_input.py  # Microphone capture + speech-to-text
 │       │   ├── voice_output.py # Text-to-speech (offline)
@@ -105,6 +156,9 @@ Jarvis-Assistant/
 │       │       ├── file_search.py      # Searches for files by name
 │       │       ├── file_manager.py     # Creates/edits files
 │       │       └── command_executor.py # Runs shell commands (confirmation-gated)
+│       ├── plugins/            # Drop new tools here — see "Writing your own plugin"
+│       │   ├── time_date_plugin.py
+│       │   └── unit_converter_plugin.py
 │       ├── ui/
 │       │   └── main_window.py # The desktop window (chat, mic, toggles)
 │       └── utils/
@@ -163,6 +217,8 @@ These steps assume Python 3.10+ is installed on your machine.
      confirmation dialog; nothing runs until you click Yes
    - Tell it a fact about yourself, close the app completely, reopen
      it, and ask about that fact again — it should remember
+   - "What time is it?" / "convert 100 fahrenheit to celsius" (these
+     come from the example plugins, not built-in code)
 
 ## Development Roadmap
 
@@ -173,6 +229,6 @@ These steps assume Python 3.10+ is installed on your machine.
 | 3 | AI chat |
 | 4 | Voice input/output + wake word |
 | 5 | Automation (open apps, websites, files, confirmed commands) |
-| 6 | Memory (persistent, cross-session) *(current)* |
-| 7 | Plugins/modules |
+| 6 | Memory (persistent, cross-session) |
+| 7 | Plugins/modules *(current)* |
 | 8 | Advanced automation (deeper OS control) |

@@ -2,17 +2,21 @@
 #
 # WHY THIS FILE EXISTS:
 # This file bridges the AI engine (ai_engine.py) and the automation
-# actions (automation/*.py). It has two jobs:
+# actions (automation/*.py), AND (as of Phase 7) any plugins loaded
+# from plugins/. It has two jobs:
 #
-#   1. TOOL_DEFINITIONS describes each automation action to Claude, in
+#   1. TOOL_DEFINITIONS describes each available tool to Claude, in
 #      the exact schema format Claude's API expects for "tool use"
 #      (function calling). This is how Claude knows these actions
-#      exist and what arguments each one needs.
+#      exist and what arguments each one needs. It's built by combining
+#      the built-in tools defined directly in this file with whatever
+#      plugins were successfully loaded from plugins/ at startup.
 #
 #   2. execute_tool() is the dispatcher: when Claude decides to use one
 #      of these tools, this function actually calls the real
-#      automation code and returns a plain-text result, which gets fed
-#      back to Claude so it can describe the outcome conversationally.
+#      automation code (or a plugin's handle() function) and returns a
+#      plain-text result, which gets fed back to Claude so it can
+#      describe the outcome conversationally.
 #
 # WHY TOOL USE INSTEAD OF KEYWORD-MATCHING THE USER'S TEXT: asking
 # Claude to decide "does this message need an action, and which one?"
@@ -30,15 +34,25 @@ from jarvis.core.automation.file_search import search_files
 from jarvis.core.automation.file_manager import create_file, edit_file, FileOperationError
 from jarvis.core.automation.command_executor import execute_command, CommandNotConfirmedError
 from jarvis.core.memory_store import MemoryStore
+from jarvis.core.plugin_loader import discover_plugins
 from jarvis.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# PHASE 7: discover plugins ONCE, when this module is first imported
+# (i.e. once per app run, at startup) — not on every single message,
+# which would mean re-scanning and re-importing every plugin file for
+# every user message. _LOADED_PLUGINS maps tool name -> LoadedPlugin,
+# and is used both to extend TOOL_DEFINITIONS below and to dispatch
+# plugin tool calls in execute_tool().
+_LOADED_PLUGINS = discover_plugins()
 
 # --- Tool schemas, in the format the Anthropic API requires ---
 # Each "input_schema" follows standard JSON Schema — Claude uses these
 # to know exactly what arguments to provide and validates its own
 # output against them before calling us.
-TOOL_DEFINITIONS = [
+# These are the tools JARVIS ships with out of the box (Phases 5-6).
+_BUILTIN_TOOL_DEFINITIONS = [
     {
         "name": "open_application",
         "description": (
@@ -173,6 +187,14 @@ TOOL_DEFINITIONS = [
     },
 ]
 
+# PHASE 7: the FINAL list of tools sent to Claude — every built-in tool
+# above, PLUS one entry per successfully loaded plugin. This is what
+# ai_engine.py actually imports and uses; it never needs to know
+# whether any given tool is built-in or came from a plugin file.
+TOOL_DEFINITIONS = _BUILTIN_TOOL_DEFINITIONS + [
+    plugin.tool_definition for plugin in _LOADED_PLUGINS.values()
+]
+
 
 def execute_tool(
     tool_name: str,
@@ -258,6 +280,22 @@ def execute_tool(
             # mentioned that on July 3rd."
             lines = [f"[{m['timestamp']}] {m['role']}: {m['content']}" for m in matches]
             return "Found these past messages:\n" + "\n".join(lines)
+
+        elif tool_name in _LOADED_PLUGINS:
+            # PHASE 7: this tool wasn't one of the built-ins above, but
+            # matches a successfully loaded plugin. Call its handle()
+            # function directly. Plugin code is wrapped in its own
+            # try/except here (separate from the built-in error
+            # handling below) since a plugin can raise ANY kind of
+            # exception — we can't know in advance what a
+            # user-written plugin might do wrong, so we must catch
+            # broadly here specifically, to keep one bad plugin call
+            # from crashing the whole conversation.
+            try:
+                return _LOADED_PLUGINS[tool_name].handler(tool_input)
+            except Exception as error:
+                logger.error("Plugin '%s' raised an error: %s", tool_name, error)
+                return f"The '{tool_name}' plugin encountered an error: {error}"
 
         else:
             # Should never happen unless TOOL_DEFINITIONS and this
