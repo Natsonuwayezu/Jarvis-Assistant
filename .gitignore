@@ -1,0 +1,27 @@
+# .gitignore
+#
+# Tells git which files/folders to NEVER track or upload to GitHub.
+# This matters for three reasons:
+#   1. Security — secrets (API keys) must never be committed.
+#   2. Size — virtual environments and cache files are huge and regenerable.
+#   3. Cleanliness — machine-specific files shouldn't clutter shared history.
+
+# Python virtual environment (created locally per machine; never shared)
+venv/
+env/
+.venv/
+
+# Python bytecode cache (auto-generated, regenerated every run)
+__pycache__/
+*.pyc
+
+# Log files (machine-specific runtime output, not source code)
+logs/
+
+# Secrets — created in Phase 3 to hold API keys. Never commit this file.
+.env
+
+# Editor/OS clutter
+.vscode/
+.idea/
+.DS_Store

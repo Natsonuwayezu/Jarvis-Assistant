@@ -1,0 +1,14 @@
+# requirements.txt
+#
+# This file lists every external Python package the project depends on.
+# You install them all at once with:  pip install -r requirements.txt
+#
+# Phase 1 uses ONLY Python's built-in standard library (no external
+# packages needed yet) — that is intentional, so you can confirm your
+# environment works before adding any dependencies.
+#
+# Future phases will add lines here, for example:
+#   PyQt6           (Phase 2 — desktop GUI)
+#   anthropic        (Phase 3 — AI reasoning)
+#   SpeechRecognition (Phase 4 — voice input)
+#   pyttsx3          (Phase 4 — voice output)
