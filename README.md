@@ -4,10 +4,32 @@ A production-quality personal AI assistant, built in Python, inspired by
 Iron Man's JARVIS. This project is being built incrementally, one phase
 at a time.
 
-## Current Status: Phase 4 — Voice Input, Voice Output & Wake Word
+## Current Status: Phase 5 — Automation
 
-Phases 1-3 built the foundation, the window, and real AI chat. Phase 4
-adds:
+Phases 1-4 built the foundation, the window, real AI chat, and voice.
+Phase 5 lets JARVIS actually DO things on your computer, using Claude's
+"tool use" (function calling) to decide when a request calls for an
+action, rather than brittle keyword matching:
+
+- **Open applications** — "open notepad", "launch spotify"
+- **Open websites / web search** — "open github.com", "search for the
+  weather in Kigali"
+- **Search your files** — "find my resume", "search for invoice.pdf"
+  (searches your home folder, not the whole drive, for speed)
+- **Create/edit files** — "create a file called notes.txt with..."
+  (never silently overwrites an existing file)
+- **Run terminal commands** — ⚠️ **always requires your explicit
+  approval via a real Yes/No dialog box before running, no matter how
+  the request is phrased.** This is the one capability that can
+  genuinely affect or damage your system, so there is no way to skip
+  the confirmation — not even by asking nicely.
+
+**A safety note worth reading once:** the confirmation dialog shows
+you the EXACT command before it runs. Read it before clicking "Yes" —
+JARVIS will show you the command, but it's still up to you to judge
+whether it's something you want run on your machine.
+
+### Voice features (from Phase 4)
 - **Voice output** — JARVIS can speak its replies out loud (fully
   offline, via your OS's built-in speech engine)
 - **Voice input** — click the 🎤 button to speak a command instead of
@@ -17,8 +39,8 @@ adds:
 
 **Known trade-off:** voice input is NOT offline (voice output is).
 Making voice input fully offline is possible in a later phase by
-swapping in a different speech-recognition engine — this file
-(`core/voice_input.py`) is the only place that would need to change.
+swapping in a different speech-recognition engine — `core/voice_input.py`
+is the only file that would need to change.
 
 ### Platform-specific setup for voice features
 
@@ -39,7 +61,7 @@ If voice input or output can't be set up on your machine (no
 microphone/speakers, or a missing dependency), JARVIS will still run —
 it just runs in text-only mode and logs a warning explaining why.
 
-### API key setup (still required, from Phase 3)
+### API key setup (required, from Phase 3)
 1. Get a key at https://console.anthropic.com/ (Settings → API Keys)
 2. Copy `.env.example` to a new file named `.env` in the project root
 3. Paste your real key into `.env`, replacing the placeholder text
@@ -54,24 +76,32 @@ Jarvis-Assistant/
 │   └── jarvis/
 │       ├── main.py          # Entry point — run this file to start the app
 │       ├── config/
-│       │   └── settings.py  # App-wide constants and configuration
+│       │   └── settings.py  # App-wide constants, model choice, system prompt
 │       ├── core/
-│       │   ├── ai_engine.py    # Talks to Claude API, manages conversation memory
+│       │   ├── ai_engine.py    # Talks to Claude API, manages memory + tool use
+│       │   ├── tools.py        # Tool schemas + dispatcher for automation actions
 │       │   ├── voice_input.py  # Microphone capture + speech-to-text
 │       │   ├── voice_output.py # Text-to-speech (offline)
-│       │   └── wake_word.py    # Background "Jarvis" wake-word listener
+│       │   ├── wake_word.py    # Background "Jarvis" wake-word listener
+│       │   └── automation/
+│       │       ├── app_launcher.py     # Opens desktop applications
+│       │       ├── web_opener.py       # Opens websites / web searches
+│       │       ├── file_search.py      # Searches for files by name
+│       │       ├── file_manager.py     # Creates/edits files
+│       │       └── command_executor.py # Runs shell commands (confirmation-gated)
 │       ├── ui/
-│       │   └── main_window.py # The desktop window (chat display, input box)
+│       │   └── main_window.py # The desktop window (chat, mic, toggles)
 │       └── utils/
 │           └── logger.py     # Shared logging setup
 ├── tests/                     # Automated tests
 ├── docs/                      # Project documentation
 ├── requirements.txt           # External Python packages this project needs
+├── .env.example                # Template for your API key (copy to .env)
 ├── .gitignore                 # Files git should never track
 └── README.md                  # This file
 ```
 
-## How to Run Phase 1
+## How to Run
 
 These steps assume Python 3.10+ is installed on your machine.
 
@@ -92,25 +122,28 @@ These steps assume Python 3.10+ is installed on your machine.
 
    Your terminal prompt should now show `(venv)` at the start of the line.
 
-4. **Install dependencies** (Phase 1 has none yet, but this is the command
-   you'll use from here on as we add packages):
+4. **Install dependencies:**
 
    ```
    pip install -r requirements.txt
    ```
 
-5. **Run the app:**
+5. **Set up your API key** (see "API key setup" above) and, if you
+   want voice features, the platform-specific setup above.
+
+6. **Run the app:**
 
    ```
    python -m src.jarvis.main
    ```
 
-   You should see a startup banner, the JARVIS window open, and (new in
-   Phase 4) a "Speak replies" toggle and a 🎤 mic button. Try:
-   - Typing a message as before
-   - Clicking 🎤 and speaking a command instead
-   - Turning on "Speak replies" so JARVIS talks back
-   - Turning on "Wake word" and saying "Jarvis, [your question]"
+   Try things like:
+   - "Open notepad" / "open calculator"
+   - "Open github.com" / "search for the weather in Kigali"
+   - "Find my resume" / "search for invoice.pdf"
+   - "Create a file called notes.txt with 'hello world'"
+   - "Run the command dir" (or `ls` on macOS/Linux) — you'll see a
+     confirmation dialog; nothing runs until you click Yes
 
 ## Development Roadmap
 
@@ -119,9 +152,8 @@ These steps assume Python 3.10+ is installed on your machine.
 | 1 | Architecture, folder structure, first working app |
 | 2 | Graphical desktop interface |
 | 3 | AI chat |
-| 4 | Voice input/output + wake word *(current)* |
 | 4 | Voice input/output + wake word |
-| 5 | Automation (open apps, websites, files) |
-| 6 | Memory (conversation history) |
+| 5 | Automation (open apps, websites, files, confirmed commands) *(current)* |
+| 6 | Memory (persistent, cross-session) |
 | 7 | Plugins/modules |
-| 8 | Advanced automation (Windows control, terminal commands) |
+| 8 | Advanced automation (deeper OS control) |

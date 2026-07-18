@@ -24,5 +24,9 @@ pyttsx3
 SpeechRecognition==3.17.0
 pyaudio
 
+# Phase 5 (automation) uses only Python's standard library (subprocess,
+# pathlib, webbrowser, os) — no new dependencies needed. Tool-use itself
+# is a feature of the anthropic package already installed in Phase 3.
+
 # Future phases will add lines here, for example:
-#   (Phase 5 — automation: opening apps, websites, files)
+#   (Phase 6 — persistent memory)

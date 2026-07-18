@@ -3,8 +3,10 @@
 # THIS IS THE ENTRY POINT OF THE ENTIRE APPLICATION.
 # No matter how big JARVIS gets, you will always start it by running this
 # file. It loads settings, sets up logging, creates the AI engine and
-# (as of Phase 4) voice input/output and wake-word listening, then
-# launches the graphical window and hands control over to it.
+# voice/wake-word features, wires up the command-confirmation dialog
+# (Phase 5), then launches the graphical window and hands control over to it.
+
+from tkinter import messagebox
 
 from jarvis.config.settings import APP_NAME, APP_VERSION
 from jarvis.utils.logger import get_logger
@@ -32,7 +34,7 @@ def print_banner() -> None:
     ============================================
       {APP_NAME} — Personal AI Assistant
       Version {APP_VERSION}
-      Status: Phase 4 (Voice + Wake Word) — Online
+      Status: Phase 5 (Automation) — Online
     ============================================
     """
     print(banner)
@@ -74,15 +76,13 @@ def main() -> None:
     """
     The main function: the single starting point for the whole app.
 
-    Phase 4 responsibilities (building on Phases 1-3):
+    Phase 5 responsibilities (building on Phases 1-4):
       1. Log startup, print the banner
-      2. Create the AI engine (unchanged from Phase 3)
-      3. Try to set up voice input and voice output — each degrades
-         gracefully to "unavailable" rather than crashing the app if
-         no microphone/speakers are found
-      4. Wire up wake-word support: enabling the toggle starts a
-         background listener; hearing "Jarvis" triggers the same mic
-         capture as clicking the mic button
+      2. Define confirm_command — a real Yes/No dialog box — and pass
+         it into the AIEngine so terminal commands can only ever run
+         after genuine, real-time user approval
+      3. Set up voice input/output (unchanged from Phase 4)
+      4. Wire up wake-word support (unchanged from Phase 4)
       5. Launch the window, hand control to its event loop, and clean
          up the wake-word thread on exit
     """
@@ -90,12 +90,45 @@ def main() -> None:
 
     print_banner()
 
+    def confirm_command(command: str) -> bool:
+        """
+        Shows a real, blocking Yes/No dialog box asking the user to
+        approve a specific terminal command before it's allowed to run.
+
+        THIS IS THE ENTIRE SAFETY GATE for JARVIS's most dangerous
+        capability (see core/automation/command_executor.py and
+        core/tools.py) — it is the ONLY place in the whole project
+        that decides a command is allowed to actually execute.
+
+        THREADING NOTE: this function is only ever called from deep
+        inside ai_engine.get_response(), which itself is only ever
+        called from MainWindow's _process_message — and that method
+        only ever runs on the MAIN thread (see the threading notes in
+        main_window.py). So it's always safe to show a Tkinter dialog
+        here directly, without needing the queue-based pattern used
+        for background threads elsewhere in this project.
+
+        `window` is referenced here even though it's defined further
+        down in this same function — that's fine in Python, since this
+        function only actually RUNS later, once window already exists
+        (the same pattern used for on_wake below).
+        """
+        return messagebox.askyesno(
+            title="JARVIS wants to run a command",
+            message=(
+                "JARVIS wants to run this command on your computer:\n\n"
+                f"    {command}\n\n"
+                "Allow it?"
+            ),
+            parent=window,
+        )
+
     # Creating the AIEngine can raise RuntimeError if no valid API key is
     # configured (see ai_engine.py). We catch that here specifically so
     # the person running the app gets a clear, friendly terminal message
     # instead of a raw Python traceback.
     try:
-        ai_engine = AIEngine()
+        ai_engine = AIEngine(confirm_command=confirm_command)
     except RuntimeError as error:
         logger.error("Failed to start AI engine: %s", error)
         print(f"\n  ERROR: {error}\n")
