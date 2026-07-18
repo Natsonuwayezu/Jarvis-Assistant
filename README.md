@@ -4,11 +4,16 @@ A production-quality personal AI assistant, built in Python, inspired by
 Iron Man's JARVIS. This project is being built incrementally, one phase
 at a time.
 
-## Current Status: Phase 1 — Foundation
+## Current Status: Phase 2 — Graphical Interface
 
-Phase 1 proves the project skeleton works: folder structure, virtual
-environment, logging, and a runnable entry point. No AI, voice, or
-automation yet — those come in later phases.
+Phase 1 proved the project skeleton works: folder structure, virtual
+environment, logging, and a runnable entry point.
+
+Phase 2 adds a real desktop window (built with CustomTkinter): a chat
+history area, a text input box, and a Send button. Typing a message and
+pressing Send/Enter currently gets you an ECHO reply — there's no real
+AI thinking yet. That's Phase 3. The point of Phase 2 is to prove the
+window itself works end-to-end before we plug in real intelligence.
 
 ## Project Structure
 
@@ -20,7 +25,8 @@ Jarvis-Assistant/
 │       ├── config/
 │       │   └── settings.py  # App-wide constants and configuration
 │       ├── core/             # (Phase 3+) AI reasoning, conversation engine
-│       ├── ui/                # (Phase 2+) Desktop graphical interface
+│       ├── ui/
+│       │   └── main_window.py # The desktop window (chat display, input box)
 │       └── utils/
 │           └── logger.py     # Shared logging setup
 ├── tests/                     # Automated tests
@@ -64,15 +70,18 @@ These steps assume Python 3.10+ is installed on your machine.
    python -m src.jarvis.main
    ```
 
-   You should see a startup banner printed in the terminal, and a new
-   `logs/jarvis.log` file will appear in the project folder.
+   You should see a startup banner printed in the terminal, a new
+   `logs/jarvis.log` file appear in the project folder, AND (new in
+   Phase 2) a dark-themed JARVIS window should open. Type a message and
+   press Enter or click Send — you'll get an echo reply for now (real AI
+   arrives in Phase 3).
 
 ## Development Roadmap
 
 | Phase | Focus |
 |-------|-------|
-| 1 | Architecture, folder structure, first working app *(current)* |
-| 2 | Graphical desktop interface |
+| 1 | Architecture, folder structure, first working app |
+| 2 | Graphical desktop interface *(current)* |
 | 3 | AI chat |
 | 4 | Voice input/output + wake word |
 | 5 | Automation (open apps, websites, files) |

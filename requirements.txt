@@ -7,8 +7,12 @@
 # packages needed yet) — that is intentional, so you can confirm your
 # environment works before adding any dependencies.
 #
+# Phase 2 adds our first external dependency: customtkinter, a library
+# that gives Python's built-in Tkinter GUI toolkit a modern look
+# (dark mode, rounded buttons, clean fonts).
+customtkinter==6.0.0
+
 # Future phases will add lines here, for example:
-#   PyQt6           (Phase 2 — desktop GUI)
 #   anthropic        (Phase 3 — AI reasoning)
 #   SpeechRecognition (Phase 4 — voice input)
 #   pyttsx3          (Phase 4 — voice output)
