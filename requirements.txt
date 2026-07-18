@@ -18,6 +18,11 @@ customtkinter==6.0.0
 anthropic==0.117.0
 python-dotenv
 
+# Phase 4 adds voice: pyttsx3 for offline text-to-speech, and
+# SpeechRecognition + PyAudio for microphone capture and transcription.
+pyttsx3
+SpeechRecognition==3.17.0
+pyaudio
+
 # Future phases will add lines here, for example:
-#   SpeechRecognition (Phase 4 — voice input)
-#   pyttsx3          (Phase 4 — voice output)
+#   (Phase 5 — automation: opening apps, websites, files)
