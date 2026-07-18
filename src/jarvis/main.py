@@ -13,6 +13,7 @@
 from jarvis.config.settings import APP_NAME, APP_VERSION
 from jarvis.utils.logger import get_logger
 from jarvis.ui.main_window import MainWindow
+from jarvis.core.ai_engine import AIEngine
 
 # __name__ here evaluates to "jarvis.main", so every log line from this
 # file will show "jarvis.main" as its source — useful once there are
@@ -24,62 +25,55 @@ def print_banner() -> None:
     """
     Print a simple startup banner to the terminal.
 
-    Even though we now have a graphical window (Phase 2), we keep this
-    terminal banner too — it's useful confirmation in the console/log
-    that the app is booting, especially once we add background behavior
-    like wake-word listening in later phases where the terminal is still
-    the place you'll watch for status/errors.
+    Even though we now have a graphical window (Phase 2) and real AI
+    reasoning (Phase 3), we keep this terminal banner too — it's useful
+    confirmation in the console/log that the app is booting, especially
+    once we add background behavior like wake-word listening later.
     """
     banner = f"""
     ============================================
       {APP_NAME} — Personal AI Assistant
       Version {APP_VERSION}
-      Status: Phase 2 (Graphical Interface) — Online
+      Status: Phase 3 (AI Chat) — Online
     ============================================
     """
     print(banner)
-
-
-def handle_message(message: str) -> str:
-    """
-    Temporary Phase 2 "brain" — just echoes the user's message back.
-
-    WHY THIS EXISTS: Phase 2 is only about proving the GUI works
-    end-to-end (typing, sending, displaying replies). We deliberately do
-    NOT add real AI reasoning yet — that's Phase 3. This function is a
-    stand-in that will be REPLACED (not extended) when we build the real
-    AI reasoning engine in core/. The MainWindow doesn't know or care
-    that this is a placeholder — that's the point of the callback design.
-
-    Args:
-        message: The raw text the user typed.
-
-    Returns:
-        JARVIS's reply as plain text.
-    """
-    logger.debug("Echo handler processing message: %s", message)
-    return f'You said: "{message}" (real AI reasoning arrives in Phase 3)'
 
 
 def main() -> None:
     """
     The main function: the single starting point for the whole app.
 
-    Phase 2 responsibilities (building on Phase 1):
+    Phase 3 responsibilities (building on Phases 1 and 2):
       1. Log that startup began
       2. Print the terminal banner
-      3. Create the graphical window, wiring it to our placeholder
-         message handler
-      4. Hand control over to the window's event loop (mainloop) —
-         this call blocks and keeps the window open/responsive until
-         the user closes it
+      3. Create the real AI engine (this is where a missing/invalid API
+         key would be caught — see the try/except below)
+      4. Create the graphical window, wiring it to the AI engine's
+         get_response method instead of the old echo placeholder
+      5. Hand control over to the window's event loop
     """
     logger.info("%s v%s starting up...", APP_NAME, APP_VERSION)
 
     print_banner()
 
+    # Creating the AIEngine can raise RuntimeError if no valid API key is
+    # configured (see ai_engine.py). We catch that here specifically so
+    # the person running the app gets a clear, friendly terminal message
+    # instead of a raw Python traceback.
+    try:
+        ai_engine = AIEngine()
+    except RuntimeError as error:
+        logger.error("Failed to start AI engine: %s", error)
+        print(f"\n  ERROR: {error}\n")
+        return
+
     logger.info("Launching graphical interface...")
-    window = MainWindow(on_user_message=handle_message)
+    # ai_engine.get_response is passed directly as the callback — this
+    # is the "swap" mentioned in ai_engine.py: the window's code is
+    # completely unchanged from Phase 2, it just now points at real AI
+    # reasoning instead of an echo function.
+    window = MainWindow(on_user_message=ai_engine.get_response)
 
     # mainloop() is Tkinter's event loop — it listens for clicks, key
     # presses, and window events, and keeps the window alive and

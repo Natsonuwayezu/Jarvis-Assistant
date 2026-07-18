@@ -12,7 +12,12 @@
 # (dark mode, rounded buttons, clean fonts).
 customtkinter==6.0.0
 
+# Phase 3 adds real AI reasoning via Anthropic's Claude API, and
+# python-dotenv to safely load the API key from a local .env file
+# instead of hardcoding it in source code.
+anthropic==0.117.0
+python-dotenv
+
 # Future phases will add lines here, for example:
-#   anthropic        (Phase 3 — AI reasoning)
 #   SpeechRecognition (Phase 4 — voice input)
 #   pyttsx3          (Phase 4 — voice output)

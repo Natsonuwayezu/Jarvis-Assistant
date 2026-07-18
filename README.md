@@ -4,16 +4,20 @@ A production-quality personal AI assistant, built in Python, inspired by
 Iron Man's JARVIS. This project is being built incrementally, one phase
 at a time.
 
-## Current Status: Phase 2 — Graphical Interface
+## Current Status: Phase 3 — AI Chat
 
-Phase 1 proved the project skeleton works: folder structure, virtual
-environment, logging, and a runnable entry point.
+Phase 1 proved the project skeleton works. Phase 2 added a real desktop
+window. Phase 3 replaces the echo placeholder with REAL AI reasoning,
+powered by Anthropic's Claude API. JARVIS can now hold an actual
+conversation (with in-session memory of what you've said so far in the
+current run — persistent cross-session memory is Phase 6).
 
-Phase 2 adds a real desktop window (built with CustomTkinter): a chat
-history area, a text input box, and a Send button. Typing a message and
-pressing Send/Enter currently gets you an ECHO reply — there's no real
-AI thinking yet. That's Phase 3. The point of Phase 2 is to prove the
-window itself works end-to-end before we plug in real intelligence.
+**Before running Phase 3, you need your own Anthropic API key:**
+1. Get one at https://console.anthropic.com/ (Settings → API Keys)
+2. Copy `.env.example` to a new file named `.env` in the project root
+3. Paste your real key into `.env`, replacing the placeholder text
+4. `.env` is already excluded from git (see `.gitignore`) — it will
+   never be accidentally pushed to GitHub
 
 ## Project Structure
 
@@ -24,7 +28,8 @@ Jarvis-Assistant/
 │       ├── main.py          # Entry point — run this file to start the app
 │       ├── config/
 │       │   └── settings.py  # App-wide constants and configuration
-│       ├── core/             # (Phase 3+) AI reasoning, conversation engine
+│       ├── core/
+│       │   └── ai_engine.py  # Talks to Claude API, manages conversation memory
 │       ├── ui/
 │       │   └── main_window.py # The desktop window (chat display, input box)
 │       └── utils/
@@ -70,19 +75,19 @@ These steps assume Python 3.10+ is installed on your machine.
    python -m src.jarvis.main
    ```
 
-   You should see a startup banner printed in the terminal, a new
-   `logs/jarvis.log` file appear in the project folder, AND (new in
-   Phase 2) a dark-themed JARVIS window should open. Type a message and
-   press Enter or click Send — you'll get an echo reply for now (real AI
-   arrives in Phase 3).
+   You should see a startup banner in the terminal, a `logs/jarvis.log`
+   file appear, and the JARVIS window open. Type a real message and
+   press Enter — JARVIS will now think and respond using Claude, not an
+   echo. If you see an error about a missing API key, double-check step
+   above about creating your `.env` file.
 
 ## Development Roadmap
 
 | Phase | Focus |
 |-------|-------|
 | 1 | Architecture, folder structure, first working app |
-| 2 | Graphical desktop interface *(current)* |
-| 3 | AI chat |
+| 2 | Graphical desktop interface |
+| 3 | AI chat *(current)* |
 | 4 | Voice input/output + wake word |
 | 5 | Automation (open apps, websites, files) |
 | 6 | Memory (conversation history) |
