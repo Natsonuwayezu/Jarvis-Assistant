@@ -48,14 +48,28 @@
 # plain-text reply. get_response() below loops through this cycle
 # until Claude produces a final text answer.
 
+# PHASE 6 ADDITION — PERSISTENT MEMORY:
+# Every successful exchange (user message + JARVIS's final reply) is
+# saved permanently via MemoryStore (core/memory_store.py), so
+# conversations survive closing and reopening the app. On startup, the
+# most recent messages are preloaded into self._history so a
+# conversation feels continuous. Anything older is reachable via the
+# "recall_memory" tool, which searches the full permanent history.
+
 import os
 from typing import Callable, List, Dict, Optional
 
 import anthropic
 from dotenv import load_dotenv
 
-from jarvis.config.settings import AI_MODEL, AI_MAX_TOKENS, AI_SYSTEM_PROMPT
+from jarvis.config.settings import (
+    AI_MODEL,
+    AI_MAX_TOKENS,
+    AI_SYSTEM_PROMPT,
+    MEMORY_PRELOAD_LIMIT,
+)
 from jarvis.core.tools import TOOL_DEFINITIONS, execute_tool
+from jarvis.core.memory_store import MemoryStore
 from jarvis.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -115,11 +129,19 @@ class AIEngine:
         self._client = anthropic.Anthropic(api_key=api_key)
         self._confirm_command = confirm_command
 
-        # Conversation history as a list of {"role": ..., "content": ...}
-        # dictionaries — this is the exact format the Claude API expects,
-        # and sending the full history with each request is what allows
-        # Claude to "remember" earlier parts of THIS session's conversation.
-        self._history: List[Dict] = []
+        # PHASE 6: open (or create) the permanent memory database, and
+        # preload the most recent exchanges into working history so a
+        # conversation feels continuous across app restarts, instead of
+        # JARVIS acting like it's never spoken to you before.
+        self._memory = MemoryStore()
+        self._history: List[Dict] = self._memory.get_recent_messages(
+            limit=MEMORY_PRELOAD_LIMIT
+        )
+
+        if self._history:
+            logger.info(
+                "Preloaded %d message(s) from persistent memory.", len(self._history)
+            )
 
         logger.info("AIEngine initialized with model '%s'.", AI_MODEL)
 
@@ -186,6 +208,16 @@ class AIEngine:
                     block.text for block in response.content if block.type == "text"
                 )
                 logger.debug("AI response generated (%d chars).", len(reply_text))
+
+                # PHASE 6: only NOW, once we know the exchange truly
+                # succeeded, do we save it permanently. We deliberately
+                # save the plain user_message and reply_text — not the
+                # tool_use/tool_result plumbing that may have happened
+                # along the way — since that's implementation detail,
+                # not something a person means by "remember this."
+                self._memory.save_message("user", user_message)
+                self._memory.save_message("assistant", reply_text)
+
                 return reply_text
 
             # --- Claude wants to use one or more tools ---
@@ -202,6 +234,7 @@ class AIEngine:
                     tool_name=block.name,
                     tool_input=block.input,
                     confirm_command=self._confirm_command,
+                    memory_store=self._memory,
                 )
 
                 tool_results.append(
@@ -225,3 +258,10 @@ class AIEngine:
             "I attempted several actions for that request but couldn't reach a final "
             "answer — could you try rephrasing or breaking it into smaller steps?"
         )
+
+    def close(self) -> None:
+        """
+        Close the underlying memory database cleanly. Called once, when
+        the whole application is shutting down (see main.py).
+        """
+        self._memory.close()

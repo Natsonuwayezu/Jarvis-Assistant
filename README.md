@@ -4,12 +4,27 @@ A production-quality personal AI assistant, built in Python, inspired by
 Iron Man's JARVIS. This project is being built incrementally, one phase
 at a time.
 
-## Current Status: Phase 5 — Automation
+## Current Status: Phase 6 — Persistent Memory
 
-Phases 1-4 built the foundation, the window, real AI chat, and voice.
-Phase 5 lets JARVIS actually DO things on your computer, using Claude's
-"tool use" (function calling) to decide when a request calls for an
-action, rather than brittle keyword matching:
+Phases 1-5 built the foundation, window, AI chat, voice, and
+automation. Phase 6 gives JARVIS REAL memory — conversations now
+survive closing and reopening the app, stored permanently in a small
+local database (`data/jarvis_memory.db`):
+
+- Every message you send and every reply JARVIS gives is saved
+  permanently, not just kept in RAM for one session.
+- On startup, the most recent messages are automatically loaded back
+  in, so a conversation feels continuous across restarts.
+- For anything further back, JARVIS can use a **recall_memory** tool
+  to search your full conversation history — try asking something like
+  "what did I tell you about my dog before?" after a restart.
+
+**Your memory database is personal data, not source code** —
+`data/` is in `.gitignore` and will never be pushed to GitHub.
+
+### Automation (from Phase 5)
+JARVIS can also act on your computer directly, using Claude's "tool
+use" (function calling) to decide when a request calls for an action:
 
 - **Open applications** — "open notepad", "launch spotify"
 - **Open websites / web search** — "open github.com", "search for the
@@ -80,6 +95,7 @@ Jarvis-Assistant/
 │       ├── core/
 │       │   ├── ai_engine.py    # Talks to Claude API, manages memory + tool use
 │       │   ├── tools.py        # Tool schemas + dispatcher for automation actions
+│       │   ├── memory_store.py # Persistent (cross-restart) conversation memory
 │       │   ├── voice_input.py  # Microphone capture + speech-to-text
 │       │   ├── voice_output.py # Text-to-speech (offline)
 │       │   ├── wake_word.py    # Background "Jarvis" wake-word listener
@@ -93,6 +109,7 @@ Jarvis-Assistant/
 │       │   └── main_window.py # The desktop window (chat, mic, toggles)
 │       └── utils/
 │           └── logger.py     # Shared logging setup
+├── data/                       # Persistent memory database (gitignored)
 ├── tests/                     # Automated tests
 ├── docs/                      # Project documentation
 ├── requirements.txt           # External Python packages this project needs
@@ -144,6 +161,8 @@ These steps assume Python 3.10+ is installed on your machine.
    - "Create a file called notes.txt with 'hello world'"
    - "Run the command dir" (or `ls` on macOS/Linux) — you'll see a
      confirmation dialog; nothing runs until you click Yes
+   - Tell it a fact about yourself, close the app completely, reopen
+     it, and ask about that fact again — it should remember
 
 ## Development Roadmap
 
@@ -153,7 +172,7 @@ These steps assume Python 3.10+ is installed on your machine.
 | 2 | Graphical desktop interface |
 | 3 | AI chat |
 | 4 | Voice input/output + wake word |
-| 5 | Automation (open apps, websites, files, confirmed commands) *(current)* |
-| 6 | Memory (persistent, cross-session) |
+| 5 | Automation (open apps, websites, files, confirmed commands) |
+| 6 | Memory (persistent, cross-session) *(current)* |
 | 7 | Plugins/modules |
 | 8 | Advanced automation (deeper OS control) |

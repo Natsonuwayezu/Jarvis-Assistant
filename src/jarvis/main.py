@@ -34,7 +34,7 @@ def print_banner() -> None:
     ============================================
       {APP_NAME} — Personal AI Assistant
       Version {APP_VERSION}
-      Status: Phase 5 (Automation) — Online
+      Status: Phase 6 (Persistent Memory) — Online
     ============================================
     """
     print(banner)
@@ -196,6 +196,10 @@ def main() -> None:
     listener = wake_word_state["listener"]
     if listener is not None:
         listener.stop()
+
+    # PHASE 6: close the persistent memory database cleanly so it isn't
+    # left in a partially-flushed state between runs.
+    ai_engine.close()
 
     logger.info("JARVIS window closed. Shutting down.")
 

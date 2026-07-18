@@ -18,6 +18,11 @@ __pycache__/
 # Log files (machine-specific runtime output, not source code)
 logs/
 
+# Persistent memory database (Phase 6) — this is YOUR personal
+# conversation history, not source code, and shouldn't be shared or
+# committed to a public/shared repository.
+data/
+
 # Secrets — created in Phase 3 to hold API keys. Never commit this file.
 .env
 

@@ -45,8 +45,24 @@ AI_SYSTEM_PROMPT = (
     "describing what you would do. Running terminal commands always "
     "requires the user's real-time confirmation, so don't ask them to "
     "confirm in words first; simply request the command and the "
-    "confirmation dialog will be handled separately. You are still an "
-    "early-stage personal assistant, so for capabilities you don't have "
-    "a tool for yet (e.g. deep OS control, plugins), politely explain "
-    "that it's still being built rather than pretending to do it."
+    "confirmation dialog will be handled separately. You have persistent "
+    "memory of past conversations — recent messages are already in your "
+    "context, and you can use the recall_memory tool to search further "
+    "back when the user references something from an earlier session. "
+    "You are still an early-stage personal assistant, so for "
+    "capabilities you don't have a tool for yet (e.g. plugins), "
+    "politely explain that it's still being built rather than "
+    "pretending to do it."
 )
+
+# --- Phase 6: persistent memory settings ---
+#
+# How many of the most recent messages (combined user + assistant) get
+# loaded back into JARVIS's working context every time the app starts,
+# so a conversation feels continuous across restarts. Kept fairly small
+# (20 messages = roughly 10 back-and-forth exchanges) since every one of
+# these gets sent to Claude with every request — larger values mean a
+# more continuous-feeling memory, but also a bigger, more expensive
+# request every time. Anything older is still searchable in full via
+# the recall_memory tool.
+MEMORY_PRELOAD_LIMIT = 20

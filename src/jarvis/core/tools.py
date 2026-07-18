@@ -29,6 +29,7 @@ from jarvis.core.automation.web_opener import open_website
 from jarvis.core.automation.file_search import search_files
 from jarvis.core.automation.file_manager import create_file, edit_file, FileOperationError
 from jarvis.core.automation.command_executor import execute_command, CommandNotConfirmedError
+from jarvis.core.memory_store import MemoryStore
 from jarvis.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -150,6 +151,26 @@ TOOL_DEFINITIONS = [
             "required": ["command"],
         },
     },
+    {
+        "name": "recall_memory",
+        "description": (
+            "Search the FULL history of past conversations with the user, "
+            "beyond what's currently visible in this conversation. Use this "
+            "when the user references something from an earlier session "
+            "(e.g. 'what did I tell you about X before', 'did we discuss Y "
+            "last week') that isn't already in the current context."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Text to search for in past conversation history.",
+                }
+            },
+            "required": ["query"],
+        },
+    },
 ]
 
 
@@ -157,6 +178,7 @@ def execute_tool(
     tool_name: str,
     tool_input: dict,
     confirm_command: Optional[Callable[[str], bool]] = None,
+    memory_store: Optional[MemoryStore] = None,
 ) -> str:
     """
     Actually perform the automation action Claude asked for, and return
@@ -172,6 +194,10 @@ def execute_tool(
             returns True/False based on real user confirmation (e.g. a
             Yes/No dialog). If not provided, execute_command requests
             are always treated as NOT confirmed — a safe default.
+        memory_store: Only used for the "recall_memory" tool. The
+            AIEngine's MemoryStore instance, used to search past
+            conversation history. If not provided, recall_memory
+            requests report that memory search is unavailable.
 
     Returns:
         A plain-text description of the result, to be sent back to
@@ -218,6 +244,20 @@ def execute_tool(
                 return "The user did not approve running that command, so it was not run."
 
             return execute_command(command, confirmed=True)
+
+        elif tool_name == "recall_memory":
+            if memory_store is None:
+                return "Memory search is unavailable right now."
+
+            matches = memory_store.search_messages(tool_input["query"])
+            if not matches:
+                return f"Nothing found in past conversations matching '{tool_input['query']}'."
+
+            # Format each match with its timestamp so Claude can tell
+            # the user roughly when something was said, e.g. "you
+            # mentioned that on July 3rd."
+            lines = [f"[{m['timestamp']}] {m['role']}: {m['content']}" for m in matches]
+            return "Found these past messages:\n" + "\n".join(lines)
 
         else:
             # Should never happen unless TOOL_DEFINITIONS and this
