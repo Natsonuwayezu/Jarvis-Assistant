@@ -33,6 +33,15 @@ from jarvis.core.automation.web_opener import open_website
 from jarvis.core.automation.file_search import search_files
 from jarvis.core.automation.file_manager import create_file, edit_file, FileOperationError
 from jarvis.core.automation.command_executor import execute_command, CommandNotConfirmedError
+from jarvis.core.automation.window_manager import (
+    list_open_windows,
+    focus_window,
+    minimize_window,
+    maximize_window,
+    close_window,
+    WindowNotFoundError,
+    WindowControlUnsupportedError,
+)
 from jarvis.core.memory_store import MemoryStore
 from jarvis.core.plugin_loader import discover_plugins
 from jarvis.utils.logger import get_logger
@@ -166,6 +175,67 @@ _BUILTIN_TOOL_DEFINITIONS = [
         },
     },
     {
+        "name": "list_open_windows",
+        "description": "List the titles of all currently open windows on the user's desktop.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "focus_window",
+        "description": "Bring an already-open window to the front and give it focus, by (partial) title.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Text to match against open window titles.",
+                }
+            },
+            "required": ["title"],
+        },
+    },
+    {
+        "name": "minimize_window",
+        "description": "Minimize an open window, by (partial) title.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Text to match against open window titles.",
+                }
+            },
+            "required": ["title"],
+        },
+    },
+    {
+        "name": "maximize_window",
+        "description": "Maximize an open window, by (partial) title.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Text to match against open window titles.",
+                }
+            },
+            "required": ["title"],
+        },
+    },
+    {
+        "name": "close_window",
+        "description": "Close an open window, by (partial) title.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Text to match against open window titles.",
+                }
+            },
+            "required": ["title"],
+        },
+    },
+    {
         "name": "recall_memory",
         "description": (
             "Search the FULL history of past conversations with the user, "
@@ -267,6 +337,21 @@ def execute_tool(
 
             return execute_command(command, confirmed=True)
 
+        elif tool_name == "list_open_windows":
+            return list_open_windows()
+
+        elif tool_name == "focus_window":
+            return focus_window(tool_input["title"])
+
+        elif tool_name == "minimize_window":
+            return minimize_window(tool_input["title"])
+
+        elif tool_name == "maximize_window":
+            return maximize_window(tool_input["title"])
+
+        elif tool_name == "close_window":
+            return close_window(tool_input["title"])
+
         elif tool_name == "recall_memory":
             if memory_store is None:
                 return "Memory search is unavailable right now."
@@ -303,7 +388,13 @@ def execute_tool(
             logger.error("Unknown tool requested: %s", tool_name)
             return f"Unknown tool '{tool_name}' — this is a bug in JARVIS, not your request."
 
-    except (AppLaunchError, FileOperationError, CommandNotConfirmedError) as error:
+    except (
+        AppLaunchError,
+        FileOperationError,
+        CommandNotConfirmedError,
+        WindowNotFoundError,
+        WindowControlUnsupportedError,
+    ) as error:
         # These are our own, expected, descriptive errors (e.g. "app
         # not found", "file already exists") — safe to hand straight
         # back to Claude as the tool result so it can explain plainly.

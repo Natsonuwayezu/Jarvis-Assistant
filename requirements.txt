@@ -28,5 +28,12 @@ pyaudio
 # pathlib, webbrowser, os) — no new dependencies needed. Tool-use itself
 # is a feature of the anthropic package already installed in Phase 3.
 
+# Phase 8 adds window management (list/focus/minimize/maximize/close).
+# NOTE: pygetwindow has full support on Windows, partial support on
+# Linux (requires an EWMH-compliant window manager), and very limited
+# support on macOS. JARVIS still runs fine everywhere — window control
+# specifically just reports itself as unavailable where unsupported.
+pygetwindow
+
 # Future phases will add lines here, for example:
 #   (Phase 6 — persistent memory)

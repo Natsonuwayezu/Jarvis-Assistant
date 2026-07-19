@@ -55,6 +55,33 @@ other plugins) keeps working normally. You can also "disable" a plugin
 without deleting it by renaming it to start with an underscore (e.g.
 `_my_plugin.py`).
 
+## Current Status: Phase 8 — Advanced Automation (Window Control)
+
+Phase 8 adds window management on top of Phase 5's app-opening: JARVIS
+can now list open windows, and focus, minimize, maximize, or close one
+by (partial) title — e.g. "minimize notepad", "what windows are open?",
+"close the calculator."
+
+**Important, honestly-stated platform limitation:** this uses the
+`pygetwindow` library, which has:
+- **Full support on Windows**
+- **Partial support on Linux** — requires an EWMH-compliant window
+  manager (most desktop environments — GNOME, KDE, XFCE — qualify;
+  a bare/minimal Linux setup with no window manager does not)
+- **Very limited support on macOS** — the OS restricts this kind of
+  control much more tightly than Windows or Linux
+
+Where window control isn't supported, JARVIS reports that plainly
+rather than pretending it worked — and importantly, **the rest of
+JARVIS keeps working normally either way**; only this one feature
+becomes unavailable.
+
+**A safety note, consistent with Phase 5's approach:** closing a
+window is NOT gated behind a confirmation dialog like terminal
+commands are — it can't touch files or run code, so it's a narrower,
+more reversible action, matching your original spec (which only
+required confirmation specifically for terminal commands).
+
 ### Memory (from Phase 6)
 Phases 1-5 built the foundation, window, AI chat, voice, and
 automation. Phase 6 gives JARVIS REAL memory — conversations now
@@ -155,7 +182,8 @@ Jarvis-Assistant/
 │       │       ├── web_opener.py       # Opens websites / web searches
 │       │       ├── file_search.py      # Searches for files by name
 │       │       ├── file_manager.py     # Creates/edits files
-│       │       └── command_executor.py # Runs shell commands (confirmation-gated)
+│       │       ├── command_executor.py # Runs shell commands (confirmation-gated)
+│       │       └── window_manager.py   # Lists/focuses/minimizes/maximizes/closes windows
 │       ├── plugins/            # Drop new tools here — see "Writing your own plugin"
 │       │   ├── time_date_plugin.py
 │       │   └── unit_converter_plugin.py
@@ -219,6 +247,9 @@ These steps assume Python 3.10+ is installed on your machine.
      it, and ask about that fact again — it should remember
    - "What time is it?" / "convert 100 fahrenheit to celsius" (these
      come from the example plugins, not built-in code)
+   - "What windows are open?" / "minimize notepad" / "close the
+     calculator" (full support on Windows; partial on Linux; limited
+     on macOS — see the Phase 8 notes above)
 
 ## Development Roadmap
 
@@ -230,5 +261,5 @@ These steps assume Python 3.10+ is installed on your machine.
 | 4 | Voice input/output + wake word |
 | 5 | Automation (open apps, websites, files, confirmed commands) |
 | 6 | Memory (persistent, cross-session) |
-| 7 | Plugins/modules *(current)* |
-| 8 | Advanced automation (deeper OS control) |
+| 7 | Plugins/modules |
+| 8 | Advanced automation (window control) *(current — final phase)* |
