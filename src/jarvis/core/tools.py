@@ -5,23 +5,23 @@
 # actions (automation/*.py), AND (as of Phase 7) any plugins loaded
 # from plugins/. It has two jobs:
 #
-#   1. TOOL_DEFINITIONS describes each available tool to Claude, in
-#      the exact schema format Claude's API expects for "tool use"
-#      (function calling). This is how Claude knows these actions
+#   1. TOOL_DEFINITIONS describes each available tool to the AI, in
+#      the exact schema format the AI's API expects for "tool use"
+#      (function calling). This is how the AI knows these actions
 #      exist and what arguments each one needs. It's built by combining
 #      the built-in tools defined directly in this file with whatever
 #      plugins were successfully loaded from plugins/ at startup.
 #
-#   2. execute_tool() is the dispatcher: when Claude decides to use one
+#   2. execute_tool() is the dispatcher: when the AI decides to use one
 #      of these tools, this function actually calls the real
 #      automation code (or a plugin's handle() function) and returns a
-#      plain-text result, which gets fed back to Claude so it can
+#      plain-text result, which gets fed back to the AI so it can
 #      describe the outcome conversationally.
 #
 # WHY TOOL USE INSTEAD OF KEYWORD-MATCHING THE USER'S TEXT: asking
-# Claude to decide "does this message need an action, and which one?"
+# the AI to decide "does this message need an action, and which one?"
 # is far more robust than pattern-matching phrases like "open" or
-# "search" ourselves — Claude already understands natural language
+# "search" ourselves — the AI already understands natural language
 # variation ("could you pull up my browser and check the weather"
 # should still trigger open_website, without us hand-coding every
 # possible phrasing).
@@ -56,8 +56,8 @@ logger = get_logger(__name__)
 # plugin tool calls in execute_tool().
 _LOADED_PLUGINS = discover_plugins()
 
-# --- Tool schemas, in the format the Anthropic API requires ---
-# Each "input_schema" follows standard JSON Schema — Claude uses these
+# --- Tool schemas, in a provider-agnostic format ---
+# Each "input_schema" follows standard JSON Schema — the AI uses these
 # to know exactly what arguments to provide and validates its own
 # output against them before calling us.
 # These are the tools JARVIS ships with out of the box (Phases 5-6).
@@ -257,7 +257,7 @@ _BUILTIN_TOOL_DEFINITIONS = [
     },
 ]
 
-# PHASE 7: the FINAL list of tools sent to Claude — every built-in tool
+# PHASE 7: the FINAL list of tools sent to the AI — every built-in tool
 # above, PLUS one entry per successfully loaded plugin. This is what
 # ai_engine.py actually imports and uses; it never needs to know
 # whether any given tool is built-in or came from a plugin file.
@@ -273,14 +273,14 @@ def execute_tool(
     memory_store: Optional[MemoryStore] = None,
 ) -> str:
     """
-    Actually perform the automation action Claude asked for, and return
+    Actually perform the automation action the AI asked for, and return
     a plain-text result describing what happened (success or failure).
 
     Args:
-        tool_name: Which tool Claude wants to use (must match a name in
+        tool_name: Which tool the AI wants to use (must match a name in
             TOOL_DEFINITIONS above).
-        tool_input: The arguments Claude provided, already validated by
-            Claude against that tool's input_schema.
+        tool_input: The arguments the AI provided, already validated by
+            the AI against that tool's input_schema.
         confirm_command: Only used for the "execute_command" tool. A
             function that takes the proposed command string and
             returns True/False based on real user confirmation (e.g. a
@@ -293,9 +293,9 @@ def execute_tool(
 
     Returns:
         A plain-text description of the result, to be sent back to
-        Claude as the tool's output. Errors are caught and turned into
+        the AI as the tool's output. Errors are caught and turned into
         descriptive strings (not raised) so a failed action becomes
-        part of the conversation Claude can react to, rather than
+        part of the conversation the AI can react to, rather than
         crashing the whole request.
     """
     logger.info("Executing tool '%s' with input: %s", tool_name, tool_input)
@@ -360,7 +360,7 @@ def execute_tool(
             if not matches:
                 return f"Nothing found in past conversations matching '{tool_input['query']}'."
 
-            # Format each match with its timestamp so Claude can tell
+            # Format each match with its timestamp so the AI can tell
             # the user roughly when something was said, e.g. "you
             # mentioned that on July 3rd."
             lines = [f"[{m['timestamp']}] {m['role']}: {m['content']}" for m in matches]
@@ -397,6 +397,6 @@ def execute_tool(
     ) as error:
         # These are our own, expected, descriptive errors (e.g. "app
         # not found", "file already exists") — safe to hand straight
-        # back to Claude as the tool result so it can explain plainly.
+        # back to the AI as the tool result so it can explain plainly.
         logger.warning("Tool '%s' failed: %s", tool_name, error)
         return f"Action failed: {error}"

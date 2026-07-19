@@ -8,7 +8,7 @@
 # HOW TO WRITE YOUR OWN PLUGIN — every plugin file must define exactly
 # two things:
 #
-#   1. TOOL_DEFINITION — a dict describing the tool to Claude, in the
+#   1. TOOL_DEFINITION — a dict describing the tool to the AI, in the
 #      SAME format used for built-in tools in core/tools.py:
 #
 #        TOOL_DEFINITION = {

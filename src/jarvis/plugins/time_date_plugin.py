@@ -4,13 +4,13 @@
 #
 # This plugin adds one new tool: get_current_datetime. It lets JARVIS
 # answer questions like "what time is it?" or "what's today's date?"
-# accurately, since Claude itself has no built-in awareness of the
+# accurately, since the AI itself has no built-in awareness of the
 # actual current date/time on your machine.
 
 from datetime import datetime
 
 # --- Required part 1: TOOL_DEFINITION ---
-# This dict is merged into the full list of tools sent to Claude,
+# This dict is merged into the full list of tools sent to the AI,
 # exactly alongside the built-in tools from Phase 5.
 TOOL_DEFINITION = {
     "name": "get_current_datetime",

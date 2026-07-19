@@ -107,7 +107,7 @@ class MemoryStore:
     def get_recent_messages(self, limit: int) -> List[Dict[str, str]]:
         """
         Retrieve the most recent messages, in chronological order
-        (oldest of the selected batch first) — the order Claude's API
+        (oldest of the selected batch first) — the order most chat AI APIs
         expects for conversation history.
 
         Args:
@@ -115,7 +115,7 @@ class MemoryStore:
 
         Returns:
             A list of {"role": ..., "content": ...} dictionaries, ready
-            to be used directly as Claude API conversation history.
+            to be used directly as conversation history for most chat AI APIs.
         """
         # We select the most recent rows first (DESC = newest first),
         # then reverse the Python list afterward — this is simpler than
@@ -131,7 +131,7 @@ class MemoryStore:
     def search_messages(self, query: str, limit: int = 10) -> List[Dict[str, str]]:
         """
         Search past messages for ones containing the given text —
-        used by the "recall_memory" tool when Claude needs to look
+        used by the "recall_memory" tool when the AI needs to look
         further back than what's preloaded into normal context.
 
         Args:

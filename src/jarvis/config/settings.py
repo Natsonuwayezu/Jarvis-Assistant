@@ -20,10 +20,11 @@ LOG_LEVEL = "INFO"
 
 # --- Phase 3: AI settings ---
 #
-# Which Claude model JARVIS uses for conversation. "claude-sonnet-5" is a
-# strong, balanced choice for a personal assistant — capable enough for
-# real reasoning, without the higher cost of Anthropic's top-tier models.
-AI_MODEL = "claude-sonnet-5"
+# Which Gemini model JARVIS uses for conversation. "gemini-3.5-flash" is
+# Google's fast, general-purpose model — strong at real reasoning and
+# tool use, and (importantly for testing without a budget) available on
+# Google's free tier via an AI Studio API key, no credit card required.
+AI_MODEL = "gemini-3.5-flash"
 
 # The maximum length (in "tokens", roughly ~4 characters each) of a
 # single JARVIS reply. Keeps responses focused and keeps API costs
@@ -33,7 +34,7 @@ AI_MAX_TOKENS = 1024
 
 # The SYSTEM PROMPT defines JARVIS's personality and behavior. It is sent
 # with every request but is invisible in the chat window — it shapes HOW
-# Claude responds, not WHAT the user sees. Feel free to edit this text
+# the AI responds, not WHAT the user sees. Feel free to edit this text
 # any time to change JARVIS's tone or style.
 AI_SYSTEM_PROMPT = (
     "You are JARVIS, a helpful, capable, and personable AI assistant "
@@ -63,7 +64,7 @@ AI_SYSTEM_PROMPT = (
 # loaded back into JARVIS's working context every time the app starts,
 # so a conversation feels continuous across restarts. Kept fairly small
 # (20 messages = roughly 10 back-and-forth exchanges) since every one of
-# these gets sent to Claude with every request — larger values mean a
+# these gets sent to the AI with every request — larger values mean a
 # more continuous-feeling memory, but also a bigger, more expensive
 # request every time. Anything older is still searchable in full via
 # the recall_memory tool.

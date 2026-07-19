@@ -5,7 +5,7 @@
 # into spoken audio through your computer's speakers.
 #
 # WHY pyttsx3: it works FULLY OFFLINE. Unlike the AI chat in Phase 3
-# (which needs internet to reach Claude), speaking a reply out loud
+# (which needs internet to reach the AI), speaking a reply out loud
 # needs no internet connection at all — pyttsx3 uses your operating
 # system's own built-in speech engine (SAPI5 on Windows, NSSpeechSynthesizer
 # on macOS, espeak on Linux).

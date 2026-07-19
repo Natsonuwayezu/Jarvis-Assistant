@@ -12,10 +12,12 @@
 # (dark mode, rounded buttons, clean fonts).
 customtkinter==6.0.0
 
-# Phase 3 adds real AI reasoning via Anthropic's Claude API, and
+# Real AI reasoning via Google's Gemini API (switched from Anthropic's
+# Claude — Gemini has a genuinely free tier via Google AI Studio, no
+# credit card required, which matters while you're still testing), plus
 # python-dotenv to safely load the API key from a local .env file
 # instead of hardcoding it in source code.
-anthropic==0.117.0
+google-genai
 python-dotenv
 
 # Phase 4 adds voice: pyttsx3 for offline text-to-speech, and
@@ -26,7 +28,7 @@ pyaudio
 
 # Phase 5 (automation) uses only Python's standard library (subprocess,
 # pathlib, webbrowser, os) — no new dependencies needed. Tool-use itself
-# is a feature of the anthropic package already installed in Phase 3.
+# is a feature of the google-genai package installed above.
 
 # Phase 8 adds window management (list/focus/minimize/maximize/close).
 # NOTE: pygetwindow has full support on Windows, partial support on

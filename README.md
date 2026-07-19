@@ -24,7 +24,7 @@ Create a new file in `src/jarvis/plugins/` (any name, e.g.
 ```python
 TOOL_DEFINITION = {
     "name": "my_tool_name",
-    "description": "What this tool does and when Claude should use it.",
+    "description": "What this tool does and when the AI should use it.",
     "input_schema": {
         "type": "object",
         "properties": {
@@ -100,7 +100,7 @@ local database (`data/jarvis_memory.db`):
 `data/` is in `.gitignore` and will never be pushed to GitHub.
 
 ### Automation (from Phase 5)
-JARVIS can also act on your computer directly, using Claude's "tool
+JARVIS can also act on your computer directly, using Gemini's "tool
 use" (function calling) to decide when a request calls for an action:
 
 - **Open applications** — "open notepad", "launch spotify"
@@ -153,12 +153,21 @@ If voice input or output can't be set up on your machine (no
 microphone/speakers, or a missing dependency), JARVIS will still run —
 it just runs in text-only mode and logs a warning explaining why.
 
-### API key setup (required, from Phase 3)
-1. Get a key at https://console.anthropic.com/ (Settings → API Keys)
+### API key setup (required — now using Google Gemini, free)
+JARVIS runs on Google's Gemini API — chosen specifically because it has
+a genuinely free tier (no credit card required), which matters while
+you're still testing.
+1. Get a **free** key at https://aistudio.google.com/apikey (sign in
+   with a Google account, click "Create API key")
 2. Copy `.env.example` to a new file named `.env` in the project root
 3. Paste your real key into `.env`, replacing the placeholder text
 4. `.env` is already excluded from git (see `.gitignore`) — it will
    never be accidentally pushed to GitHub
+
+**Free tier limits to know about:** Gemini's free tier is generous but
+rate-limited (currently around 15 requests/minute and a daily cap). If
+JARVIS says it's having trouble reaching the AI service, you may have
+hit that limit — wait a bit and try again.
 
 ## Project Structure
 
@@ -170,7 +179,7 @@ Jarvis-Assistant/
 │       ├── config/
 │       │   └── settings.py  # App-wide constants, model choice, system prompt
 │       ├── core/
-│       │   ├── ai_engine.py    # Talks to Claude API, manages memory + tool use
+│       │   ├── ai_engine.py    # Talks to Gemini API, manages memory + tool use
 │       │   ├── tools.py        # Tool schemas + dispatcher (built-in + plugins)
 │       │   ├── plugin_loader.py # Discovers and loads plugins/ at startup
 │       │   ├── memory_store.py # Persistent (cross-restart) conversation memory

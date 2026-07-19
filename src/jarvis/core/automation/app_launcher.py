@@ -39,7 +39,7 @@ def open_application(app_name: str) -> str:
     Raises:
         AppLaunchError: if the application could not be found/started.
             The caller (ai_engine.py) catches this and reports it back
-            to Claude as a tool result, so the AI can explain the
+            back as a tool result, so the AI can explain the
             failure conversationally instead of the app crashing.
     """
     system = platform.system()  # "Windows", "Darwin" (macOS), or "Linux"
