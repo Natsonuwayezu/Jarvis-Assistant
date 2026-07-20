@@ -7,83 +7,38 @@
 # Tkinter GUI toolkit.
 #
 # IMPORTANT DESIGN DECISION — read this before touching this file later:
-# This window does NOT know how to think, reason, or respond intelligently.
-# It only knows how to:
-#   1. Display messages in the chat area
-#   2. Notice when you type something and press Send / Enter
-#   3. Hand your message off to a "callback" function (given to it from
-#      outside — see on_user_message below)
-#
-# This keeps the UI decoupled from the "brain" (added in core/ during
-# Phase 3). When we add real AI reasoning, we won't touch this file at
-# all — we'll just pass in a smarter callback function from main.py.
-
-# src/jarvis/ui/main_window.py
-#
-# WHY THIS FILE EXISTS:
-# This is the visual "face" of JARVIS — the window you actually see and
-# click on. It uses CustomTkinter, a library that adds a modern look
-# (rounded corners, dark mode, clean fonts) on top of Python's built-in
-# Tkinter GUI toolkit.
-#
-# IMPORTANT DESIGN DECISION — read this before touching this file later:
 # This window does NOT know how to think, reason, listen, or speak by
 # itself. It only knows how to:
 #   1. Display messages in the chat area
 #   2. Notice when you type (or click mic / wake-word) and hand the
 #      resulting text off to a "callback" function given to it from
 #      outside (see on_user_message, on_voice_capture, on_speak below)
+#   3. Show a proactive routine (see notify_routine below) when the
+#      background scheduler says one is due, WITHOUT any user action
 #
 # This keeps the UI decoupled from the "brain" (core/). We can swap the
 # AI engine, the speech recognizer, or the TTS engine without ever
 # touching this file — only the callbacks passed in from main.py change.
 #
-# THREADING NOTE (Phase 4 — important):
-# Capturing microphone audio and speaking text OUT LOUD are both
-# "blocking" operations — they pause whatever thread they run on until
-# they finish. If we ran them directly on the GUI's own thread, the
-# ENTIRE window would freeze (no clicking, no typing, no visual update)
-# for however many seconds that takes. To keep the window responsive,
-# both actions run on separate background threads, and only the final
-# RESULT is passed back to the GUI thread via self.after(0, ...) —
-# the standard, safe way to update a Tkinter GUI from another thread.
-
-# src/jarvis/ui/main_window.py
-#
-# WHY THIS FILE EXISTS:
-# This is the visual "face" of JARVIS — the window you actually see and
-# click on. It uses CustomTkinter, a library that adds a modern look
-# (rounded corners, dark mode, clean fonts) on top of Python's built-in
-# Tkinter GUI toolkit.
-#
-# IMPORTANT DESIGN DECISION — read this before touching this file later:
-# This window does NOT know how to think, reason, listen, or speak by
-# itself. It only knows how to:
-#   1. Display messages in the chat area
-#   2. Notice when you type (or click mic / wake-word) and hand the
-#      resulting text off to a "callback" function given to it from
-#      outside (see on_user_message, on_voice_capture, on_speak below)
-#
-# This keeps the UI decoupled from the "brain" (core/). We can swap the
-# AI engine, the speech recognizer, or the TTS engine without ever
-# touching this file — only the callbacks passed in from main.py change.
-#
-# THREADING NOTE (Phase 4 — read this carefully, it covers a real bug
-# that came up while building this):
+# THREADING NOTE (read this carefully — it covers two real bugs that
+# came up while building this):
 # Capturing microphone audio and speaking text OUT LOUD both BLOCK
 # (pause) whatever thread they run on. So they run on background
 # threads, to keep the window responsive. The tricky part: Tkinter
 # widgets may ONLY be touched from the single main thread that created
 # them — calling something like self.after(...) directly from a
 # background thread is unsafe and can raise errors like "main thread is
-# not in main loop" (this was confirmed while testing this exact file).
+# not in main loop" (confirmed while testing this exact file). The same
+# issue applies to RoutineScheduler's background thread notifying the
+# GUI that a reminder is due.
 #
 # THE FIX: background threads never touch Tkinter directly. Instead,
 # they put their results into a thread-safe queue.Queue (safe to use
 # from any thread by design). The MAIN thread runs a small recurring
 # check (via self.after, scheduled from itself) that drains the queue
 # and updates the GUI. This is the standard, safe pattern for combining
-# background threads with Tkinter.
+# background threads with Tkinter, and it's why notify_routine() below
+# just pushes onto the same queue used for mic capture and wake word.
 
 import queue
 import threading
@@ -368,6 +323,8 @@ class MainWindow(ctk.CTk):
                     self._on_voice_captured(data)
                 elif event_type == "trigger_mic":
                     self._handle_mic_click()
+                elif event_type == "routine_fired":
+                    self._on_routine_fired(data)
         except queue.Empty:
             pass
 
@@ -375,6 +332,21 @@ class MainWindow(ctk.CTk):
         # main thread (it's only ever invoked via self.after), calling
         # self.after again here is always safe.
         self.after(_QUEUE_POLL_INTERVAL_MS, self._poll_event_queue)
+
+    def _on_routine_fired(self, description: str) -> None:
+        """
+        Runs on the main thread (called only from _poll_event_queue)
+        when a scheduled routine becomes due. Displays it as a JARVIS
+        message WITHOUT calling the AI again — a routine is a simple,
+        pre-written reminder, not a new question, so there's no need to
+        spend an API call (and free-tier quota) generating a reply for
+        something we already know what to say.
+        """
+        message = f"Reminder: {description}"
+        self._append_message("JARVIS", message)
+
+        if self._speak_replies_enabled and self._on_speak is not None:
+            threading.Thread(target=self._on_speak, args=(message,), daemon=True).start()
 
     def _on_voice_captured(self, text: str) -> None:
         """
@@ -409,6 +381,19 @@ class MainWindow(ctk.CTk):
         if self._on_voice_capture is None:
             return
         self._event_queue.put(("trigger_mic", None))
+
+    def notify_routine(self, description: str) -> None:
+        """
+        Public method that tells the window a scheduled routine is due.
+        Exists so RoutineScheduler (running on ITS OWN background
+        thread in main.py) can safely notify the GUI a reminder should
+        be shown — following the exact same thread-safe queue pattern
+        as trigger_mic_listen above.
+
+        SAFE FROM ANY THREAD: same reasoning as trigger_mic_listen —
+        queue.Queue.put() is thread-safe by design.
+        """
+        self._event_queue.put(("routine_fired", description))
 
     def _handle_speak_toggle(self) -> None:
         """Called when the 'Speak replies' switch is flipped."""

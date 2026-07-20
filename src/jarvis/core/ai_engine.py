@@ -57,6 +57,7 @@ from jarvis.config.settings import (
     AI_MAX_TOKENS,
     AI_SYSTEM_PROMPT,
     MEMORY_PRELOAD_LIMIT,
+    MAX_SESSION_HISTORY,
 )
 from jarvis.core.tools import TOOL_DEFINITIONS, execute_tool
 from jarvis.core.memory_store import MemoryStore
@@ -103,7 +104,11 @@ class AIEngine:
     requests, and handling errors gracefully.
     """
 
-    def __init__(self, confirm_command: Optional[Callable[[str], bool]] = None):
+    def __init__(
+        self,
+        confirm_command: Optional[Callable[[str], bool]] = None,
+        memory_store: Optional[MemoryStore] = None,
+    ):
         """
         Set up the connection to the Gemini API.
 
@@ -114,6 +119,14 @@ class AIEngine:
                 GUI Yes/No dialog. If not provided, JARVIS will simply
                 never be able to run terminal commands (every request
                 to do so is treated as declined) — a safe default.
+            memory_store: An existing MemoryStore instance to use,
+                instead of creating a new one. This exists so main.py
+                can share ONE MemoryStore between AIEngine (for
+                conversation history) and RoutineScheduler (for
+                proactive reminders) — both need to read/write the same
+                underlying database. If not provided, a new MemoryStore
+                is created internally, exactly as in earlier versions
+                of this class.
 
         Raises:
             RuntimeError: if no API key can be found. We raise a clear,
@@ -157,7 +170,12 @@ class AIEngine:
         # happens here, at the boundary, rather than inside MemoryStore
         # itself, so MemoryStore stays reusable if we switch providers
         # again later.
-        self._memory = MemoryStore()
+        self._memory = memory_store or MemoryStore()
+        # If a MemoryStore was handed to us (shared with RoutineScheduler
+        # in main.py), we don't own its lifecycle — main.py is
+        # responsible for closing it. We only close it ourselves in
+        # close() below if WE were the ones who created it.
+        self._owns_memory = memory_store is None
         raw_history = self._memory.get_recent_messages(limit=MEMORY_PRELOAD_LIMIT)
         self._history: List[Dict] = [
             {
@@ -191,6 +209,17 @@ class AIEngine:
             instead of raising an exception — so the GUI never crashes
             because of an API problem.
         """
+        # Trim the working history BEFORE adding anything new for this
+        # call. This is the one safe point to do it: the previous
+        # get_response() call has already fully completed (no
+        # in-progress function-call sequence hanging mid-way), so
+        # dropping old entries from the front here can never split a
+        # function call from its matching result.
+        if len(self._history) > MAX_SESSION_HISTORY:
+            overflow = len(self._history) - MAX_SESSION_HISTORY
+            del self._history[:overflow]
+            logger.debug("Trimmed %d old entries from session history.", overflow)
+
         # Add the user's new message to history BEFORE sending, so it's
         # included as part of the context Gemini sees.
         self._history.append({"role": "user", "parts": [{"text": user_message}]})
@@ -304,7 +333,10 @@ class AIEngine:
 
     def close(self) -> None:
         """
-        Close the underlying memory database cleanly. Called once, when
-        the whole application is shutting down (see main.py).
+        Close the underlying memory database cleanly — but ONLY if
+        this AIEngine created it itself. If a shared MemoryStore was
+        passed in (see __init__), main.py owns closing it, since
+        RoutineScheduler may still be using the same instance.
         """
-        self._memory.close()
+        if self._owns_memory:
+            self._memory.close()

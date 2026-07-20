@@ -50,6 +50,10 @@ AI_SYSTEM_PROMPT = (
     "memory of past conversations — recent messages are already in your "
     "context, and you can use the recall_memory tool to search further "
     "back when the user references something from an earlier session. "
+    "You can also schedule proactive reminders using create_routine — "
+    "these fire on their own later, without the user needing to ask "
+    "again, so use them whenever the user wants to be reminded of "
+    "something at a specific time (once, or daily). "
     "You can also manage open windows — listing, focusing, minimizing, "
     "maximizing, or closing them by title. Additional tools may be "
     "available from user-installed plugins — use any tool provided to "
@@ -69,3 +73,17 @@ AI_SYSTEM_PROMPT = (
 # request every time. Anything older is still searchable in full via
 # the recall_memory tool.
 MEMORY_PRELOAD_LIMIT = 20
+
+# The maximum number of entries kept in a SINGLE SESSION's live working
+# history (self._history in ai_engine.py) before older ones get
+# trimmed off the front. Without this cap, a long conversation grows
+# unbounded — every message sent to Gemini gets bigger, slower, and
+# closer to hitting the free tier's rate/token limits. This is
+# deliberately larger than MEMORY_PRELOAD_LIMIT (which only controls
+# what's loaded back in at startup) since it also needs room for
+# tool-use turns (each tool call adds 2 extra entries: the request and
+# its result) that happen WITHIN a single session. Trimming only
+# happens at the very start of get_response(), a clean point where the
+# previous exchange has already fully finished — so it never risks
+# cutting off a function call from its matching result mid-sequence.
+MAX_SESSION_HISTORY = 60

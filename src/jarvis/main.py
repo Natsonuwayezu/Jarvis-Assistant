@@ -2,9 +2,10 @@
 #
 # THIS IS THE ENTRY POINT OF THE ENTIRE APPLICATION.
 # No matter how big JARVIS gets, you will always start it by running this
-# file. It loads settings, sets up logging, creates the AI engine and
-# voice/wake-word features, wires up the command-confirmation dialog
-# (Phase 5), then launches the graphical window and hands control over to it.
+# file. It loads settings, sets up logging, creates a shared memory store,
+# the AI engine, voice/wake-word features, and the proactive routine
+# scheduler, wires up the command-confirmation dialog, then launches the
+# graphical window and hands control over to it.
 
 from tkinter import messagebox
 
@@ -12,6 +13,8 @@ from jarvis.config.settings import APP_NAME, APP_VERSION
 from jarvis.utils.logger import get_logger
 from jarvis.ui.main_window import MainWindow
 from jarvis.core.ai_engine import AIEngine
+from jarvis.core.memory_store import MemoryStore
+from jarvis.core.routine_scheduler import RoutineScheduler
 from jarvis.core.voice_input import VoiceInput
 from jarvis.core.voice_output import VoiceOutput
 from jarvis.core.wake_word import WakeWordListener
@@ -34,7 +37,7 @@ def print_banner() -> None:
     ============================================
       {APP_NAME} — Personal AI Assistant
       Version {APP_VERSION}
-      Status: Phase 6 (Persistent Memory) — Online
+      Status: All 8 phases + proactive routines — Online
     ============================================
     """
     print(banner)
@@ -76,19 +79,30 @@ def main() -> None:
     """
     The main function: the single starting point for the whole app.
 
-    Phase 5 responsibilities (building on Phases 1-4):
+    Responsibilities:
       1. Log startup, print the banner
-      2. Define confirm_command — a real Yes/No dialog box — and pass
+      2. Create ONE shared MemoryStore — used by both the AI engine
+         (conversation history) and the routine scheduler (proactive
+         reminders), since both need to read/write the same database
+      3. Define confirm_command — a real Yes/No dialog box — and pass
          it into the AIEngine so terminal commands can only ever run
          after genuine, real-time user approval
-      3. Set up voice input/output (unchanged from Phase 4)
-      4. Wire up wake-word support (unchanged from Phase 4)
-      5. Launch the window, hand control to its event loop, and clean
-         up the wake-word thread on exit
+      4. Set up voice input/output
+      5. Wire up wake-word support
+      6. Wire up the proactive routine scheduler
+      7. Launch the window, hand control to its event loop, and clean
+         up all background threads + the shared memory store on exit
     """
     logger.info("%s v%s starting up...", APP_NAME, APP_VERSION)
 
     print_banner()
+
+    # Created once, here, and shared: AIEngine uses it for conversation
+    # history and the recall_memory tool; RoutineScheduler uses it for
+    # proactive reminders. See memory_store.py's threading note — every
+    # method on this object is safe to call from either the main thread
+    # or the scheduler's background thread.
+    shared_memory = MemoryStore()
 
     def confirm_command(command: str) -> bool:
         """
@@ -111,7 +125,7 @@ def main() -> None:
         `window` is referenced here even though it's defined further
         down in this same function — that's fine in Python, since this
         function only actually RUNS later, once window already exists
-        (the same pattern used for on_wake below).
+        (the same pattern used for on_wake and on_routine_due below).
         """
         return messagebox.askyesno(
             title="JARVIS wants to run a command",
@@ -128,10 +142,11 @@ def main() -> None:
     # the person running the app gets a clear, friendly terminal message
     # instead of a raw Python traceback.
     try:
-        ai_engine = AIEngine(confirm_command=confirm_command)
+        ai_engine = AIEngine(confirm_command=confirm_command, memory_store=shared_memory)
     except RuntimeError as error:
         logger.error("Failed to start AI engine: %s", error)
         print(f"\n  ERROR: {error}\n")
+        shared_memory.close()
         return
 
     voice_input = _init_voice_input()
@@ -172,6 +187,16 @@ def main() -> None:
                 listener.stop()
                 wake_word_state["listener"] = None
 
+    def on_routine_due(description: str) -> None:
+        """
+        Called (from the routine scheduler's OWN background thread)
+        whenever a scheduled reminder becomes due. Just forwards it to
+        the window — notify_routine() is safe to call from any thread,
+        following the exact same pattern as trigger_mic_listen above.
+        """
+        logger.info("Routine due — notifying window: %s", description)
+        window.notify_routine(description)
+
     logger.info("Launching graphical interface...")
 
     # Voice features degrade gracefully: if voice_input/voice_output are
@@ -185,21 +210,29 @@ def main() -> None:
         on_toggle_wake_word=on_toggle_wake_word if voice_input else None,
     )
 
+    # The routine scheduler runs independently of voice/wake-word
+    # features — reminders are text (and optionally spoken), not tied
+    # to any particular input method, so it's always started.
+    routine_scheduler = RoutineScheduler(memory_store=shared_memory, on_routine_due=on_routine_due)
+    routine_scheduler.start()
+
     # mainloop() is Tkinter's event loop — it listens for clicks, key
     # presses, and window events, and keeps the window alive and
     # responsive. Execution stays inside this call until the window
     # is closed, at which point the function returns and the app exits.
     window.mainloop()
 
-    # Clean up the background wake-word thread (if it was left running)
-    # so the process can exit fully instead of hanging on a stray thread.
+    # Clean up every background thread and the shared memory store so
+    # the process can exit fully instead of hanging on stray threads or
+    # leaving the database in a partially-flushed state.
+    routine_scheduler.stop()
+
     listener = wake_word_state["listener"]
     if listener is not None:
         listener.stop()
 
-    # PHASE 6: close the persistent memory database cleanly so it isn't
-    # left in a partially-flushed state between runs.
-    ai_engine.close()
+    ai_engine.close()  # No-op here since memory_store was injected — see ai_engine.py
+    shared_memory.close()  # main.py owns the shared instance, so it closes it
 
     logger.info("JARVIS window closed. Shutting down.")
 

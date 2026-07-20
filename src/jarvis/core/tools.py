@@ -236,6 +236,57 @@ _BUILTIN_TOOL_DEFINITIONS = [
         },
     },
     {
+        "name": "create_routine",
+        "description": (
+            "Schedule a proactive reminder JARVIS will bring up on its own, "
+            "without the user asking again — e.g. 'remind me to drink water "
+            "every day at 3pm' or 'remind me about the dentist tomorrow at 9am'. "
+            "If you need to compute a relative time (like 'tomorrow' or 'in 2 "
+            "hours'), call get_current_datetime first to learn the current date/time."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": "What to remind the user of, e.g. 'drink water'.",
+                },
+                "next_run": {
+                    "type": "string",
+                    "description": (
+                        "ISO 8601 datetime for when this should first fire, "
+                        "e.g. '2026-07-20T15:00:00'."
+                    ),
+                },
+                "recurrence": {
+                    "type": "string",
+                    "enum": ["once", "daily"],
+                    "description": "'once' fires a single time; 'daily' repeats every day at the same time.",
+                },
+            },
+            "required": ["description", "next_run", "recurrence"],
+        },
+    },
+    {
+        "name": "list_routines",
+        "description": "List every reminder/routine currently scheduled.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "cancel_routine",
+        "description": "Cancel a previously scheduled reminder/routine by its ID (from list_routines).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "routine_id": {
+                    "type": "integer",
+                    "description": "The routine's ID, as shown by list_routines.",
+                }
+            },
+            "required": ["routine_id"],
+        },
+    },
+    {
         "name": "recall_memory",
         "description": (
             "Search the FULL history of past conversations with the user, "
@@ -351,6 +402,39 @@ def execute_tool(
 
         elif tool_name == "close_window":
             return close_window(tool_input["title"])
+
+        elif tool_name == "create_routine":
+            if memory_store is None:
+                return "Routines are unavailable right now."
+            routine_id = memory_store.create_routine(
+                description=tool_input["description"],
+                next_run=tool_input["next_run"],
+                recurrence=tool_input["recurrence"],
+            )
+            return (
+                f"Scheduled routine #{routine_id}: I'll {tool_input['description']} "
+                f"at {tool_input['next_run']} ({tool_input['recurrence']})."
+            )
+
+        elif tool_name == "list_routines":
+            if memory_store is None:
+                return "Routines are unavailable right now."
+            routines = memory_store.list_routines()
+            if not routines:
+                return "No routines are currently scheduled."
+            lines = [
+                f"#{r['id']}: {r['description']} at {r['next_run']} ({r['recurrence']})"
+                for r in routines
+            ]
+            return "Scheduled routines:\n" + "\n".join(lines)
+
+        elif tool_name == "cancel_routine":
+            if memory_store is None:
+                return "Routines are unavailable right now."
+            cancelled = memory_store.cancel_routine(tool_input["routine_id"])
+            if cancelled:
+                return f"Cancelled routine #{tool_input['routine_id']}."
+            return f"No routine with ID {tool_input['routine_id']} was found."
 
         elif tool_name == "recall_memory":
             if memory_store is None:

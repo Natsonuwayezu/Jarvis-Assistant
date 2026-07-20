@@ -4,6 +4,36 @@ A production-quality personal AI assistant, built in Python, inspired by
 Iron Man's JARVIS. This project is being built incrementally, one phase
 at a time.
 
+## Productivity Improvements (post-Phase-8)
+
+After comparing this project against a much larger open-source
+research framework (Stanford's OpenJarvis) to see what a more mature
+personal-AI project prioritizes, two ideas stood out as genuinely
+valuable AND cheap to add — no new installs, no local models:
+
+- **Proactive routines** — JARVIS was 100% reactive through Phase 8:
+  it never brought anything up unless you asked first. Now you can say
+  "remind me to drink water every day at 3pm" or "remind me about the
+  dentist tomorrow at 9am," and JARVIS will bring it up on its own,
+  at the right time — spoken aloud too, if "Speak replies" is on.
+  Ask "what reminders do I have?" or "cancel that reminder" any time.
+  **Trade-off, stated plainly:** this only fires while JARVIS is
+  actually open and running — it's not a true background OS service,
+  by design, to avoid adding installers/permissions for a lightweight
+  feature.
+- **Conversation trimming** — session history now has a cap
+  (`MAX_SESSION_HISTORY` in `settings.py`). Long conversations no
+  longer grow the request sent to Gemini forever, which matters
+  directly for staying within the free tier's rate/token limits.
+
+A real, non-obvious bug came up while building routines: `MemoryStore`
+was originally documented as "only ever used from the main thread,"
+which stopped being true the moment the routine scheduler needed to
+check the database from its own background thread. Testing that
+surfaced a genuine `sqlite3.ProgrammingError` — fixed by allowing
+cross-thread use and adding a lock so the main thread and the
+scheduler thread can never collide on the same connection.
+
 ## Current Status: Phase 7 — Plugins/Modules
 
 Phases 1-6 built the foundation, window, AI chat, voice, automation,
@@ -182,7 +212,8 @@ Jarvis-Assistant/
 │       │   ├── ai_engine.py    # Talks to Gemini API, manages memory + tool use
 │       │   ├── tools.py        # Tool schemas + dispatcher (built-in + plugins)
 │       │   ├── plugin_loader.py # Discovers and loads plugins/ at startup
-│       │   ├── memory_store.py # Persistent (cross-restart) conversation memory
+│       │   ├── memory_store.py # Persistent (cross-restart) conversation memory + routines
+│       │   ├── routine_scheduler.py # Background thread that fires due proactive routines
 │       │   ├── voice_input.py  # Microphone capture + speech-to-text
 │       │   ├── voice_output.py # Text-to-speech (offline)
 │       │   ├── wake_word.py    # Background "Jarvis" wake-word listener
@@ -256,6 +287,9 @@ These steps assume Python 3.10+ is installed on your machine.
      it, and ask about that fact again — it should remember
    - "What time is it?" / "convert 100 fahrenheit to celsius" (these
      come from the example plugins, not built-in code)
+   - "Remind me to stretch every day at 2pm" / "what reminders do I
+     have?" / "cancel that reminder" (proactive routines — fire on
+     their own later, while JARVIS stays open)
    - "What windows are open?" / "minimize notepad" / "close the
      calculator" (full support on Windows; partial on Linux; limited
      on macOS — see the Phase 8 notes above)
