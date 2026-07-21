@@ -76,6 +76,7 @@ class MainWindow(ctk.CTk):
         on_voice_capture: Optional[Callable[[], str]] = None,
         on_speak: Optional[Callable[[str], None]] = None,
         on_toggle_wake_word: Optional[Callable[[bool], None]] = None,
+        on_open_settings: Optional[Callable[[], None]] = None,
     ):
         """
         Args:
@@ -93,6 +94,11 @@ class MainWindow(ctk.CTk):
             on_toggle_wake_word: A function that takes True/False —
                 called when the user turns the wake-word toggle on/off.
                 If not provided, the wake-word toggle is hidden.
+            on_open_settings: A function with no arguments, called when
+                the user clicks the "⚙ Settings" button. If not
+                provided, the Settings button is hidden — this window
+                doesn't know HOW to open a settings dialog, only that
+                a button click should trigger whatever main.py wants.
         """
         super().__init__()
 
@@ -101,6 +107,7 @@ class MainWindow(ctk.CTk):
         self._on_voice_capture = on_voice_capture
         self._on_speak = on_speak
         self._on_toggle_wake_word = on_toggle_wake_word
+        self._on_open_settings = on_open_settings
 
         # Tracks whether "speak replies out loud" is currently enabled.
         self._speak_replies_enabled = False
@@ -159,6 +166,17 @@ class MainWindow(ctk.CTk):
                 command=self._handle_wake_word_toggle,
             )
             self.wake_word_toggle.pack(side="left")
+
+        if self._on_open_settings is not None:
+            # Packed on the RIGHT side of the same status bar row, so it
+            # sits apart from the toggles rather than crowding them.
+            self.settings_button = ctk.CTkButton(
+                status_frame,
+                text="⚙ Settings",
+                width=100,
+                command=self._handle_open_settings,
+            )
+            self.settings_button.pack(side="right")
 
     def _build_chat_area(self) -> None:
         """
@@ -411,6 +429,15 @@ class MainWindow(ctk.CTk):
         enabled = bool(self.wake_word_toggle.get())
         logger.info("Wake word toggled: %s", enabled)
         self._on_toggle_wake_word(enabled)
+
+    def _handle_open_settings(self) -> None:
+        """
+        Called when the 'Settings' button is clicked. Delegates entirely
+        to main.py via the on_open_settings callback — this window
+        doesn't construct or manage the Settings window itself, since
+        it doesn't know about UserSettings, AIEngine, or VoiceOutput.
+        """
+        self._on_open_settings()
 
     def _append_message(self, sender: str, message: str) -> None:
         """

@@ -15,9 +15,11 @@ from jarvis.ui.main_window import MainWindow
 from jarvis.core.ai_engine import AIEngine
 from jarvis.core.memory_store import MemoryStore
 from jarvis.core.routine_scheduler import RoutineScheduler
+from jarvis.core.user_settings import UserSettings
 from jarvis.core.voice_input import VoiceInput
 from jarvis.core.voice_output import VoiceOutput
 from jarvis.core.wake_word import WakeWordListener
+from jarvis.ui.settings_window import SettingsWindow
 
 # __name__ here evaluates to "jarvis.main", so every log line from this
 # file will show "jarvis.main" as its source — useful once there are
@@ -62,14 +64,17 @@ def _init_voice_input() -> "VoiceInput | None":
         return None
 
 
-def _init_voice_output() -> "VoiceOutput | None":
+def _init_voice_output(user_settings: UserSettings) -> "VoiceOutput | None":
     """
-    Try to set up text-to-speech. Returns None (instead of raising) if
-    the system's speech engine can't be reached, so the app can still
-    run in text-only mode.
+    Try to set up text-to-speech, using the user's saved voice
+    speed/volume preferences (see core/user_settings.py). Returns None
+    (instead of raising) if the system's speech engine can't be
+    reached, so the app can still run in text-only mode.
     """
     try:
-        return VoiceOutput()
+        return VoiceOutput(
+            rate=user_settings.get("voice_rate"), volume=user_settings.get("voice_volume")
+        )
     except Exception as error:  # pyttsx3 can raise various backend-specific errors
         logger.warning("Voice output unavailable: %s", error)
         return None
@@ -84,13 +89,19 @@ def main() -> None:
       2. Create ONE shared MemoryStore — used by both the AI engine
          (conversation history) and the routine scheduler (proactive
          reminders), since both need to read/write the same database
-      3. Define confirm_command — a real Yes/No dialog box — and pass
-         it into the AIEngine so terminal commands can only ever run
-         after genuine, real-time user approval
-      4. Set up voice input/output
-      5. Wire up wake-word support
-      6. Wire up the proactive routine scheduler
-      7. Launch the window, hand control to its event loop, and clean
+      3. Load UserSettings (personality/voice preferences) and use them
+         for the AI engine's initial personality and voice output's
+         initial speed/volume
+      4. Define confirm_command and confirm_action — real Yes/No dialog
+         boxes — and pass them into the AIEngine so terminal commands
+         and other risky actions can only ever run after genuine,
+         real-time user approval
+      5. Set up voice input/output
+      6. Wire up wake-word support
+      7. Wire up the proactive routine scheduler
+      8. Wire up the Settings window, including applying changes live
+         to the already-running AI engine and voice output
+      9. Launch the window, hand control to its event loop, and clean
          up all background threads + the shared memory store on exit
     """
     logger.info("%s v%s starting up...", APP_NAME, APP_VERSION)
@@ -103,6 +114,10 @@ def main() -> None:
     # method on this object is safe to call from either the main thread
     # or the scheduler's background thread.
     shared_memory = MemoryStore()
+
+    # Loads any saved personality/voice preferences from data/user_settings.json
+    # (or built-in defaults, on first run). See core/user_settings.py.
+    user_settings = UserSettings()
 
     def confirm_command(command: str) -> bool:
         """
@@ -137,12 +152,32 @@ def main() -> None:
             parent=window,
         )
 
+    def confirm_action(description: str) -> bool:
+        """
+        Shows a real, blocking Yes/No dialog box asking the user to
+        approve some other real, external, hard-to-undo action —
+        currently just creating a GitHub issue (see core/tools.py and
+        core/automation/github_client.py). Same safety role as
+        confirm_command above, just for a different category of
+        risky-but-not-a-shell-command action.
+        """
+        return messagebox.askyesno(
+            title="JARVIS wants to take an action",
+            message=f"JARVIS wants to:\n\n    {description}\n\nAllow it?",
+            parent=window,
+        )
+
     # Creating the AIEngine can raise RuntimeError if no valid API key is
     # configured (see ai_engine.py). We catch that here specifically so
     # the person running the app gets a clear, friendly terminal message
     # instead of a raw Python traceback.
     try:
-        ai_engine = AIEngine(confirm_command=confirm_command, memory_store=shared_memory)
+        ai_engine = AIEngine(
+            confirm_command=confirm_command,
+            memory_store=shared_memory,
+            confirm_action=confirm_action,
+            system_prompt=user_settings.get("personality"),
+        )
     except RuntimeError as error:
         logger.error("Failed to start AI engine: %s", error)
         print(f"\n  ERROR: {error}\n")
@@ -150,7 +185,7 @@ def main() -> None:
         return
 
     voice_input = _init_voice_input()
-    voice_output = _init_voice_output()
+    voice_output = _init_voice_output(user_settings)
 
     # A single mutable container (dict) to hold the currently-running
     # WakeWordListener, if any. Using a dict (rather than a plain
@@ -197,6 +232,27 @@ def main() -> None:
         logger.info("Routine due — notifying window: %s", description)
         window.notify_routine(description)
 
+    def apply_settings() -> None:
+        """
+        Called after the user saves (or resets) settings in the
+        Settings window. Pushes the new values into the ALREADY
+        RUNNING AIEngine and VoiceOutput — this is what makes changes
+        take effect immediately, instead of only on next restart.
+        """
+        ai_engine.set_system_prompt(user_settings.get("personality"))
+        if voice_output is not None:
+            voice_output.set_rate(user_settings.get("voice_rate"))
+            voice_output.set_volume(user_settings.get("voice_volume"))
+        logger.info("Settings applied to the running app.")
+
+    def on_open_settings() -> None:
+        """
+        Called when the user clicks the "⚙ Settings" button. Opens the
+        Settings window, wiring it to the shared UserSettings instance
+        and the apply_settings() function above.
+        """
+        SettingsWindow(user_settings=user_settings, on_applied=apply_settings)
+
     logger.info("Launching graphical interface...")
 
     # Voice features degrade gracefully: if voice_input/voice_output are
@@ -208,6 +264,7 @@ def main() -> None:
         on_voice_capture=voice_input.listen_once if voice_input else None,
         on_speak=voice_output.speak if voice_output else None,
         on_toggle_wake_word=on_toggle_wake_word if voice_input else None,
+        on_open_settings=on_open_settings,
     )
 
     # The routine scheduler runs independently of voice/wake-word

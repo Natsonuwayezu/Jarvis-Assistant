@@ -34,6 +34,26 @@ surfaced a genuine `sqlite3.ProgrammingError` — fixed by allowing
 cross-thread use and adding a lock so the main thread and the
 scheduler thread can never collide on the same connection.
 
+### PDF reading, GitHub integration, and a Settings page
+
+Three more additions, closing gaps from the original project spec:
+
+- **Read PDFs** — "summarize this PDF" or "what does this document say
+  about X" now works. Uses `pypdf` (small, pure-Python, no heavy
+  binaries). Honest limitation: it extracts real text, not images — a
+  scanned PDF with no text layer won't work (that would need OCR, a
+  much heavier dependency we're deliberately not adding).
+- **GitHub integration** — check issues/PRs, or create a new issue, on
+  any repo. Uses only Python's built-in `urllib` — zero new
+  dependencies. Creating an issue is a real, visible, hard-to-undo
+  external action, so — consistent with how terminal commands work —
+  it always requires your explicit real-time confirmation first.
+- **Settings page** — click "⚙ Settings" in the app to adjust JARVIS's
+  personality (system prompt) and voice speed/volume, without ever
+  opening a source file. Changes apply immediately to the running app
+  and persist across restarts (`data/user_settings.json`, gitignored
+  like your memory database).
+
 ## Current Status: Phase 7 — Plugins/Modules
 
 Phases 1-6 built the foundation, window, AI chat, voice, automation,
@@ -214,6 +234,7 @@ Jarvis-Assistant/
 │       │   ├── plugin_loader.py # Discovers and loads plugins/ at startup
 │       │   ├── memory_store.py # Persistent (cross-restart) conversation memory + routines
 │       │   ├── routine_scheduler.py # Background thread that fires due proactive routines
+│       │   ├── user_settings.py # Personality + voice prefs (data/user_settings.json)
 │       │   ├── voice_input.py  # Microphone capture + speech-to-text
 │       │   ├── voice_output.py # Text-to-speech (offline)
 │       │   ├── wake_word.py    # Background "Jarvis" wake-word listener
@@ -223,15 +244,18 @@ Jarvis-Assistant/
 │       │       ├── file_search.py      # Searches for files by name
 │       │       ├── file_manager.py     # Creates/edits files
 │       │       ├── command_executor.py # Runs shell commands (confirmation-gated)
-│       │       └── window_manager.py   # Lists/focuses/minimizes/maximizes/closes windows
+│       │       ├── window_manager.py   # Lists/focuses/minimizes/maximizes/closes windows
+│       │       ├── pdf_reader.py       # Extracts text from PDF files
+│       │       └── github_client.py    # Repo info, issues, PRs (create_issue is confirmation-gated)
 │       ├── plugins/            # Drop new tools here — see "Writing your own plugin"
 │       │   ├── time_date_plugin.py
 │       │   └── unit_converter_plugin.py
 │       ├── ui/
-│       │   └── main_window.py # The desktop window (chat, mic, toggles)
+│       │   ├── main_window.py     # The desktop window (chat, mic, toggles, settings button)
+│       │   └── settings_window.py # In-app personality + voice settings dialog
 │       └── utils/
 │           └── logger.py     # Shared logging setup
-├── data/                       # Persistent memory database (gitignored)
+├── data/                       # Persistent memory database + user settings (gitignored)
 ├── tests/                     # Automated tests
 ├── docs/                      # Project documentation
 ├── requirements.txt           # External Python packages this project needs
@@ -293,6 +317,11 @@ These steps assume Python 3.10+ is installed on your machine.
    - "What windows are open?" / "minimize notepad" / "close the
      calculator" (full support on Windows; partial on Linux; limited
      on macOS — see the Phase 8 notes above)
+   - "Read ~/Documents/report.pdf and summarize it"
+   - "What are the open issues on octocat/Hello-World?" (works without
+     a GITHUB_TOKEN for public repos, just more rate-limited)
+   - Click "⚙ Settings" to change JARVIS's personality or voice
+     speed/volume — takes effect immediately
 
 ## Development Roadmap
 

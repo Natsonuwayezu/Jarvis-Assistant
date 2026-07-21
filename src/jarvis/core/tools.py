@@ -42,6 +42,14 @@ from jarvis.core.automation.window_manager import (
     WindowNotFoundError,
     WindowControlUnsupportedError,
 )
+from jarvis.core.automation.pdf_reader import read_pdf, PDFReadError
+from jarvis.core.automation.github_client import (
+    get_repo_info,
+    list_issues,
+    list_pull_requests,
+    create_issue,
+    GitHubError,
+)
 from jarvis.core.memory_store import MemoryStore
 from jarvis.core.plugin_loader import discover_plugins
 from jarvis.utils.logger import get_logger
@@ -236,6 +244,92 @@ _BUILTIN_TOOL_DEFINITIONS = [
         },
     },
     {
+        "name": "github_get_repo_info",
+        "description": "Get basic info (description, stars, forks, open issue count) about a GitHub repository.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository in 'owner/name' format, e.g. 'octocat/Hello-World'.",
+                }
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "github_list_issues",
+        "description": "List issues on a GitHub repository.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo": {"type": "string", "description": "Repository in 'owner/name' format."},
+                "state": {
+                    "type": "string",
+                    "enum": ["open", "closed", "all"],
+                    "description": "Which issues to list. Defaults to 'open'.",
+                },
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "github_list_pull_requests",
+        "description": "List pull requests on a GitHub repository.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo": {"type": "string", "description": "Repository in 'owner/name' format."},
+                "state": {
+                    "type": "string",
+                    "enum": ["open", "closed", "all"],
+                    "description": "Which pull requests to list. Defaults to 'open'.",
+                },
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "github_create_issue",
+        "description": (
+            "Create a new issue on a GitHub repository. This is a real, visible, "
+            "hard-to-undo external action (an issue can be closed but not deleted), "
+            "so it always requires the user's real-time confirmation before running, "
+            "no matter how the request was phrased. Requires a GITHUB_TOKEN to be configured."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo": {"type": "string", "description": "Repository in 'owner/name' format."},
+                "title": {"type": "string", "description": "The issue's title."},
+                "body": {"type": "string", "description": "The issue's description text."},
+            },
+            "required": ["repo", "title"],
+        },
+    },
+    {
+        "name": "read_pdf",
+        "description": (
+            "Read and extract text from a PDF file on the user's computer, "
+            "so you can answer questions about its contents, summarize it, "
+            "or find specific information within it."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "filepath": {
+                    "type": "string",
+                    "description": "Path to the PDF file, e.g. '~/Documents/report.pdf'.",
+                },
+                "max_pages": {
+                    "type": "integer",
+                    "description": "Optional: only read the first this-many pages.",
+                },
+            },
+            "required": ["filepath"],
+        },
+    },
+    {
         "name": "create_routine",
         "description": (
             "Schedule a proactive reminder JARVIS will bring up on its own, "
@@ -322,6 +416,7 @@ def execute_tool(
     tool_input: dict,
     confirm_command: Optional[Callable[[str], bool]] = None,
     memory_store: Optional[MemoryStore] = None,
+    confirm_action: Optional[Callable[[str], bool]] = None,
 ) -> str:
     """
     Actually perform the automation action the AI asked for, and return
@@ -337,10 +432,16 @@ def execute_tool(
             returns True/False based on real user confirmation (e.g. a
             Yes/No dialog). If not provided, execute_command requests
             are always treated as NOT confirmed — a safe default.
-        memory_store: Only used for the "recall_memory" tool. The
-            AIEngine's MemoryStore instance, used to search past
-            conversation history. If not provided, recall_memory
-            requests report that memory search is unavailable.
+        memory_store: Only used for the "recall_memory" and routine
+            tools. The shared MemoryStore instance, used to search past
+            conversation history and manage scheduled routines. If not
+            provided, those requests report themselves as unavailable.
+        confirm_action: Used for other real, external, hard-to-undo
+            actions — currently just "create_github_issue" (a GitHub
+            issue can be closed but not deleted via the API). Takes a
+            plain-text description of the action and returns True/False
+            based on real user confirmation. If not provided, these
+            actions are always treated as NOT confirmed — a safe default.
 
     Returns:
         A plain-text description of the result, to be sent back to
@@ -402,6 +503,39 @@ def execute_tool(
 
         elif tool_name == "close_window":
             return close_window(tool_input["title"])
+
+        elif tool_name == "github_get_repo_info":
+            return get_repo_info(tool_input["repo"])
+
+        elif tool_name == "github_list_issues":
+            return list_issues(tool_input["repo"], tool_input.get("state", "open"))
+
+        elif tool_name == "github_list_pull_requests":
+            return list_pull_requests(tool_input["repo"], tool_input.get("state", "open"))
+
+        elif tool_name == "github_create_issue":
+            action_description = (
+                f"create a GitHub issue on {tool_input['repo']} titled "
+                f"'{tool_input['title']}'"
+            )
+
+            # Same safety pattern as execute_command: this is a real,
+            # visible, hard-to-undo external action, so it requires
+            # genuine real-time user approval — confirm_action is only
+            # ever True here if a real human clicked "Yes" on a real
+            # dialog box asking about THIS EXACT action.
+            is_confirmed = confirm_action(action_description) if confirm_action else False
+
+            if not is_confirmed:
+                logger.info("User declined (or no confirmation available) for: %s", action_description)
+                return "The user did not approve creating that issue, so it was not created."
+
+            return create_issue(
+                tool_input["repo"], tool_input["title"], tool_input.get("body", "")
+            )
+
+        elif tool_name == "read_pdf":
+            return read_pdf(tool_input["filepath"], tool_input.get("max_pages"))
 
         elif tool_name == "create_routine":
             if memory_store is None:
@@ -478,6 +612,8 @@ def execute_tool(
         CommandNotConfirmedError,
         WindowNotFoundError,
         WindowControlUnsupportedError,
+        PDFReadError,
+        GitHubError,
     ) as error:
         # These are our own, expected, descriptive errors (e.g. "app
         # not found", "file already exists") — safe to hand straight

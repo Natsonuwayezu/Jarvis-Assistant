@@ -37,5 +37,12 @@ pyaudio
 # specifically just reports itself as unavailable where unsupported.
 pygetwindow
 
+# PDF reading: pypdf is a small, pure-Python library (no heavy binaries)
+# for extracting text from PDF files.
+pypdf
+
+# GitHub integration uses only Python's built-in urllib — zero new
+# dependencies, by design (see core/automation/github_client.py).
+
 # Future phases will add lines here, for example:
 #   (Phase 6 — persistent memory)

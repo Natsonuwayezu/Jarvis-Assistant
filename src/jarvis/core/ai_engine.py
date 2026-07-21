@@ -108,6 +108,8 @@ class AIEngine:
         self,
         confirm_command: Optional[Callable[[str], bool]] = None,
         memory_store: Optional[MemoryStore] = None,
+        confirm_action: Optional[Callable[[str], bool]] = None,
+        system_prompt: Optional[str] = None,
     ):
         """
         Set up the connection to the Gemini API.
@@ -119,6 +121,17 @@ class AIEngine:
                 GUI Yes/No dialog. If not provided, JARVIS will simply
                 never be able to run terminal commands (every request
                 to do so is treated as declined) — a safe default.
+            confirm_action: A function that takes a plain-text
+                description of some other real, external, hard-to-undo
+                action (currently just creating a GitHub issue) and
+                returns True/False based on real user confirmation. If
+                not provided, those actions are always treated as
+                declined — a safe default.
+            system_prompt: A custom personality/system prompt to use
+                instead of the built-in AI_SYSTEM_PROMPT default (see
+                config/settings.py). Normally comes from the user's
+                Settings window (core/user_settings.py). If not
+                provided (or empty), the built-in default is used.
             memory_store: An existing MemoryStore instance to use,
                 instead of creating a new one. This exists so main.py
                 can share ONE MemoryStore between AIEngine (for
@@ -156,7 +169,9 @@ class AIEngine:
 
         self._client = genai.Client(api_key=api_key)
         self._confirm_command = confirm_command
+        self._confirm_action = confirm_action
         self._tools = _build_gemini_tools()
+        self._system_prompt = system_prompt or AI_SYSTEM_PROMPT
 
         # Open (or create) the permanent memory database, and preload
         # the most recent exchanges into working history so a
@@ -225,7 +240,7 @@ class AIEngine:
         self._history.append({"role": "user", "parts": [{"text": user_message}]})
 
         config = types.GenerateContentConfig(
-            system_instruction=AI_SYSTEM_PROMPT,
+            system_instruction=self._system_prompt,
             max_output_tokens=AI_MAX_TOKENS,
             tools=self._tools,
             # We disable Gemini's own automatic function calling because
@@ -308,6 +323,7 @@ class AIEngine:
                     tool_input=dict(function_call.args or {}),
                     confirm_command=self._confirm_command,
                     memory_store=self._memory,
+                    confirm_action=self._confirm_action,
                 )
 
                 response_parts.append(
@@ -330,6 +346,20 @@ class AIEngine:
             "I attempted several actions for that request but couldn't reach a final "
             "answer — could you try rephrasing or breaking it into smaller steps?"
         )
+
+    def set_system_prompt(self, new_prompt: str) -> None:
+        """
+        Update JARVIS's personality/system prompt while the app keeps
+        running (used by the Settings window — see ui/settings_window.py).
+        Takes effect on the NEXT message; a conversation already in
+        progress isn't retroactively changed.
+
+        Args:
+            new_prompt: The new system prompt text. If empty/None, the
+                built-in default (AI_SYSTEM_PROMPT) is restored instead.
+        """
+        self._system_prompt = new_prompt or AI_SYSTEM_PROMPT
+        logger.info("System prompt updated (%d chars).", len(self._system_prompt))
 
     def close(self) -> None:
         """

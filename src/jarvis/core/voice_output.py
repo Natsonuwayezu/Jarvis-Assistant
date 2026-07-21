@@ -85,3 +85,26 @@ class VoiceOutput:
         self._engine.save_to_file(text, filepath)
         self._engine.runAndWait()
         logger.debug("Saved speech audio to %s", filepath)
+
+    def set_rate(self, rate: int) -> None:
+        """
+        Change the speaking speed while JARVIS keeps running (used by
+        the Settings window — see ui/settings_window.py). Takes effect
+        on the NEXT speak() call; a speech already in progress isn't
+        affected mid-sentence.
+
+        Args:
+            rate: Speaking speed in words per minute.
+        """
+        self._engine.setProperty("rate", rate)
+        logger.info("Voice rate updated to %d.", rate)
+
+    def set_volume(self, volume: float) -> None:
+        """
+        Change the speaking volume while JARVIS keeps running.
+
+        Args:
+            volume: Speech volume from 0.0 (silent) to 1.0 (full volume).
+        """
+        self._engine.setProperty("volume", volume)
+        logger.info("Voice volume updated to %.2f.", volume)
