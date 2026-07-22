@@ -44,5 +44,12 @@ pypdf
 # GitHub integration uses only Python's built-in urllib — zero new
 # dependencies, by design (see core/automation/github_client.py).
 
+# Offline speech recognition (optional — off by default, turned on via
+# the Settings window). vosk itself is small to install and does
+# nothing unless: (1) the setting is turned on, AND (2) a model has
+# been downloaded — see the README's "Offline speech recognition
+# setup" section. Voice input works fine without ever touching this.
+vosk
+
 # Future phases will add lines here, for example:
 #   (Phase 6 — persistent memory)

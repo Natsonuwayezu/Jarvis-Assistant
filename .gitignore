@@ -23,6 +23,11 @@ logs/
 # committed to a public/shared repository.
 data/
 
+# Downloaded offline speech-recognition model (~40MB+) — you download
+# this yourself (see README), it's not source code, and it's too large
+# to sensibly commit to git.
+data/vosk-model/
+
 # Secrets — created in Phase 3 to hold API keys. Never commit this file.
 .env
 

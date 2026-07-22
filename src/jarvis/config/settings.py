@@ -11,12 +11,22 @@
 # secrets from a local ".env" file instead, which is excluded from git via
 # .gitignore. This file only holds non-secret, non-sensitive configuration.
 
+from pathlib import Path
+
 APP_NAME = "JARVIS"
 APP_VERSION = "0.1.0"
 
 # Controls how much detail gets printed to the console.
 # Options (from least to most detail): "WARNING", "INFO", "DEBUG"
 LOG_LEVEL = "INFO"
+
+# Where JARVIS looks for a downloaded offline speech-recognition model
+# (see core/voice_input.py and the README's "Offline speech recognition
+# setup" section). Not used at all unless offline mode is turned on in
+# Settings — online (Google) recognition is the default and needs no
+# model download.
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+VOSK_MODEL_PATH = _PROJECT_ROOT / "data" / "vosk-model"
 
 # --- Phase 3: AI settings ---
 #

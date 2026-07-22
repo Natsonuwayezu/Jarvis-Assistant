@@ -16,7 +16,7 @@ from jarvis.core.ai_engine import AIEngine
 from jarvis.core.memory_store import MemoryStore
 from jarvis.core.routine_scheduler import RoutineScheduler
 from jarvis.core.user_settings import UserSettings
-from jarvis.core.voice_input import VoiceInput
+from jarvis.core.voice_input import VoiceInput, VoiceInputError
 from jarvis.core.voice_output import VoiceOutput
 from jarvis.core.wake_word import WakeWordListener
 from jarvis.ui.settings_window import SettingsWindow
@@ -45,14 +45,21 @@ def print_banner() -> None:
     print(banner)
 
 
-def _init_voice_input() -> "VoiceInput | None":
+def _init_voice_input(user_settings: UserSettings) -> "VoiceInput | None":
     """
-    Try to set up microphone access. Returns None (instead of raising)
-    if no microphone is available, so the app can still run in
-    text-only mode rather than crashing on machines without a mic.
+    Try to set up microphone access, using either online (Google) or
+    offline (Vosk) recognition based on the user's saved preference
+    (see core/user_settings.py and the in-app Settings window).
+
+    Returns None (instead of raising) if no microphone is available,
+    OR if offline mode is on but the model isn't set up correctly —
+    either way, the app still runs in text-only mode rather than
+    crashing.
     """
+    use_offline = user_settings.get("offline_speech_recognition")
+
     try:
-        voice_input = VoiceInput()
+        voice_input = VoiceInput(use_offline=use_offline)
         # Sample the room's background noise once at startup so the
         # microphone's sensitivity is calibrated correctly from the
         # very first use, rather than using a generic guessed default.
@@ -61,6 +68,12 @@ def _init_voice_input() -> "VoiceInput | None":
     except OSError as error:
         # sr.Microphone() raises OSError when no input device is found.
         logger.warning("Voice input unavailable (no microphone found?): %s", error)
+        return None
+    except VoiceInputError as error:
+        # Offline mode was requested but the model isn't set up (missing
+        # download, wrong path, etc.) — logged clearly so the user knows
+        # exactly what to fix, but doesn't prevent JARVIS from starting.
+        logger.warning("Voice input unavailable: %s", error)
         return None
 
 
@@ -184,7 +197,7 @@ def main() -> None:
         shared_memory.close()
         return
 
-    voice_input = _init_voice_input()
+    voice_input = _init_voice_input(user_settings)
     voice_output = _init_voice_output(user_settings)
 
     # A single mutable container (dict) to hold the currently-running

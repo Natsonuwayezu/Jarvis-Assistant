@@ -53,6 +53,12 @@ Three more additions, closing gaps from the original project spec:
   opening a source file. Changes apply immediately to the running app
   and persist across restarts (`data/user_settings.json`, gitignored
   like your memory database).
+- **Offline speech recognition** — a real, tested alternative to
+  Google's online speech-to-text, using a local Vosk model. Genuinely
+  verified end-to-end (synthesized speech → real local model →
+  correct transcribed text, entirely offline). Opt-in via Settings,
+  since it needs a one-time model download — see "Offline speech
+  recognition setup" below.
 
 ## Current Status: Phase 7 — Plugins/Modules
 
@@ -175,14 +181,41 @@ whether it's something you want run on your machine.
 - **Voice output** — JARVIS can speak its replies out loud (fully
   offline, via your OS's built-in speech engine)
 - **Voice input** — click the 🎤 button to speak a command instead of
-  typing (requires internet — uses Google's free speech-to-text)
+  typing. Two modes, switchable in "⚙ Settings":
+  - **Online (default)** — uses Google's free speech-to-text. No setup,
+    but requires internet and sends audio to Google's servers.
+  - **Offline** — uses a local model (Vosk), fully private, no internet
+    needed for recognition. Requires a one-time model download (see
+    below). Trade-off, stated plainly: noticeably less accurate than
+    the online option, especially with background noise or unusual
+    phrasing — genuinely tested and confirmed working, but don't expect
+    Google-level accuracy from a ~40MB local model.
 - **Wake word** — toggle "Wake word" on, then just say "Jarvis" and
   your next sentence to trigger a response hands-free
 
-**Known trade-off:** voice input is NOT offline (voice output is).
-Making voice input fully offline is possible in a later phase by
-swapping in a different speech-recognition engine — `core/voice_input.py`
-is the only file that would need to change.
+### Offline speech recognition setup
+
+Only needed if you turn on "Offline speech recognition" in Settings —
+online voice input needs none of this.
+
+1. Install the extra dependency (already in `requirements.txt`):
+   `pip install vosk`
+2. Download a model from the official source:
+   https://alphacephei.com/vosk/models — for English, get
+   **vosk-model-small-en-us-0.15** (~40MB; larger models exist and are
+   more accurate, but also slower to load).
+3. Unzip it so the folder structure looks like:
+   `Jarvis-Assistant/data/vosk-model/am/`, `.../conf/`, `.../graph/`,
+   etc. (i.e., the *contents* of the zip go directly into
+   `data/vosk-model/`, not into a nested subfolder).
+4. Open JARVIS → "⚙ Settings" → turn on "Offline speech recognition" →
+   Save → **restart JARVIS** (loading the model happens once at
+   startup, so this setting needs a restart to take effect, unlike
+   personality/voice speed which apply immediately).
+
+If the model isn't found or fails to load, JARVIS logs a clear warning
+and voice input is simply unavailable for that session — the rest of
+the app (including typing) keeps working normally.
 
 ### Platform-specific setup for voice features
 
@@ -235,7 +268,7 @@ Jarvis-Assistant/
 │       │   ├── memory_store.py # Persistent (cross-restart) conversation memory + routines
 │       │   ├── routine_scheduler.py # Background thread that fires due proactive routines
 │       │   ├── user_settings.py # Personality + voice prefs (data/user_settings.json)
-│       │   ├── voice_input.py  # Microphone capture + speech-to-text
+│       │   ├── voice_input.py  # Mic capture + speech-to-text (online/Google or offline/Vosk)
 │       │   ├── voice_output.py # Text-to-speech (offline)
 │       │   ├── wake_word.py    # Background "Jarvis" wake-word listener
 │       │   └── automation/

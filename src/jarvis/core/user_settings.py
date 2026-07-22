@@ -32,6 +32,7 @@ _DEFAULTS = {
     "personality": None,  # None means "use AI_SYSTEM_PROMPT from settings.py"
     "voice_rate": 175,  # Words per minute — matches VoiceOutput's own default
     "voice_volume": 1.0,  # 0.0 (silent) to 1.0 (full volume)
+    "offline_speech_recognition": False,  # True = local Vosk model, no internet needed
 }
 
 

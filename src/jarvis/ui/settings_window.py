@@ -48,8 +48,8 @@ class SettingsWindow(ctk.CTkToplevel):
         self._on_applied = on_applied
 
         self.title("JARVIS Settings")
-        self.geometry("520x480")
-        self.minsize(420, 400)
+        self.geometry("520x600")
+        self.minsize(420, 480)
 
         # Being a CTkToplevel (a secondary window), this makes it
         # appear "on top of" the main window and grabs input focus,
@@ -129,6 +129,29 @@ class SettingsWindow(ctk.CTkToplevel):
         self.volume_slider.set(self._user_settings.get("voice_volume"))
         self.volume_slider.grid(row=3, column=0, sticky="ew")
 
+        # --- Offline speech recognition ---
+        self.offline_speech_switch = ctk.CTkSwitch(
+            voice_frame,
+            text="Offline speech recognition (local Vosk model, no internet)",
+        )
+        if self._user_settings.get("offline_speech_recognition"):
+            self.offline_speech_switch.select()
+        self.offline_speech_switch.grid(row=4, column=0, sticky="ew", pady=(15, 0))
+
+        offline_note = ctk.CTkLabel(
+            voice_frame,
+            text=(
+                "Requires a downloaded model (see README) — "
+                "restart JARVIS after changing this for it to take effect."
+            ),
+            font=ctk.CTkFont(size=11),
+            text_color="gray60",
+            anchor="w",
+            justify="left",
+            wraplength=440,
+        )
+        offline_note.grid(row=5, column=0, sticky="ew", pady=(2, 0))
+
     def _build_buttons(self) -> None:
         """Save / Reset to Defaults / Cancel buttons along the bottom."""
         button_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -166,6 +189,9 @@ class SettingsWindow(ctk.CTkToplevel):
         self._user_settings.set("personality", personality_text or None)
         self._user_settings.set("voice_rate", int(self.rate_slider.get()))
         self._user_settings.set("voice_volume", round(self.volume_slider.get(), 2))
+        self._user_settings.set(
+            "offline_speech_recognition", bool(self.offline_speech_switch.get())
+        )
         self._user_settings.save()
 
         logger.info("Settings saved from SettingsWindow.")
@@ -192,6 +218,8 @@ class SettingsWindow(ctk.CTkToplevel):
 
         self.volume_slider.set(self._user_settings.get("voice_volume"))
         self._on_volume_changed(self._user_settings.get("voice_volume"))
+
+        self.offline_speech_switch.deselect()
 
         logger.info("Settings reset to defaults from SettingsWindow.")
 
